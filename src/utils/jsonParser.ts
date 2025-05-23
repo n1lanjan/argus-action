@@ -5,6 +5,37 @@
 import * as core from '@actions/core'
 
 /**
+ * Clean JSON string to handle common AI response formatting issues
+ */
+function cleanJsonString(jsonText: string): string {
+  // Remove any leading/trailing whitespace
+  jsonText = jsonText.trim()
+
+  // Handle unescaped backticks and newlines in JSON string values
+  // This is a more robust approach that processes JSON structure
+  try {
+    // First, let's try a simple escape approach for common issues
+    let cleaned = jsonText
+
+    // Replace unescaped backticks with escaped ones (simple approach)
+    // We'll be conservative and only replace backticks that are clearly within string values
+    cleaned = cleaned.replace(/"([^"]*)`([^"]*)"/g, (match, before, after) => {
+      return `"${before}\\${'`'}${after}"`
+    })
+
+    // Handle unescaped newlines within JSON string values
+    cleaned = cleaned.replace(/"([^"]*)\n([^"]*)"/g, (match, before, after) => {
+      return `"${before}\\n${after}"`
+    })
+
+    return cleaned
+  } catch {
+    // If anything goes wrong, return the original text
+    return jsonText
+  }
+}
+
+/**
  * Robustly parse JSON from AI agent responses
  * Handles various formats including markdown code blocks and partial JSON
  */
@@ -26,7 +57,21 @@ export function parseAgentResponse(text: string, filename: string, agentType: st
         return []
       }
 
-      parsedResponse = JSON.parse(jsonMatch[jsonMatch.length - 1])
+      // Clean the JSON string to handle common AI response issues
+      let jsonText = jsonMatch[jsonMatch.length - 1]
+      const originalText = jsonText
+      jsonText = cleanJsonString(jsonText)
+
+      try {
+        parsedResponse = JSON.parse(jsonText)
+      } catch (parseError) {
+        core.debug(
+          `JSON parse failed for ${agentType} agent on ${filename}. Original: ${originalText.substring(0, 100)}...`
+        )
+        core.debug(`Cleaned: ${jsonText.substring(0, 100)}...`)
+        core.debug(`Parse error: ${parseError}`)
+        throw parseError
+      }
     }
 
     // Handle both old format (array) and new format (object with issues property)
