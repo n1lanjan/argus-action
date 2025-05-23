@@ -35057,10 +35057,10 @@ If no significant logic issues are found, respond with an empty array: []`;
             'logic-error': ['Clean Code', 'Code Complete', 'Debugging Best Practices'],
             'edge-case': ['Defensive Programming', 'Testing Edge Cases', 'Error Handling Patterns'],
             'business-rule': ['Domain-Driven Design', 'Business Logic Patterns'],
-            'algorithm': ['Algorithm Design Manual', 'Introduction to Algorithms'],
+            algorithm: ['Algorithm Design Manual', 'Introduction to Algorithms'],
             'state-management': ['State Patterns', 'Redux Documentation', 'State Machine Design'],
             'error-handling': ['Exception Handling Best Practices', 'Resilience Patterns'],
-            'integration': ['Integration Patterns', 'API Design Best Practices'],
+            integration: ['Integration Patterns', 'API Design Best Practices'],
             'data-consistency': ['ACID Properties', 'Transaction Management', 'Data Integrity'],
         };
         return resourceMap[category] || ['Clean Code', 'Software Engineering Best Practices'];
@@ -39099,7 +39099,7 @@ class ReviewSynthesizer {
         // Create overall summary
         const summary = this.generateSummary(agentResults, blockingIssues, recommendations, context);
         // Calculate metrics
-        const metrics = this.calculateMetrics(agentResults, deduplicatedIssues, startTime);
+        const metrics = this.calculateMetrics(agentResults, deduplicatedIssues, context, startTime);
         const finalReview = {
             summary,
             blockingIssues,
@@ -39257,8 +39257,8 @@ class ReviewSynthesizer {
     /**
      * Calculate performance and quality metrics
      */
-    calculateMetrics(agentResults, issues, startTime) {
-        const filesReviewed = new Set(issues.map(i => i.file)).size;
+    calculateMetrics(agentResults, issues, context, startTime) {
+        const filesReviewed = context.changedFiles.length;
         const executionTime = Date.now() - startTime;
         const agentPerformance = {};
         for (const result of agentResults) {
