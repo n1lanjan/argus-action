@@ -36122,6 +36122,22 @@ class ConfigurationManager {
         if (enableCoaching) {
             config.enableCoaching = enableCoaching.toLowerCase() === 'true';
         }
+        // Update PR description
+        const updatePrDescription = core.getInput('update-pr-description');
+        if (updatePrDescription) {
+            const mode = updatePrDescription.toLowerCase();
+            if (mode === 'disabled' || mode === 'overwrite' || mode === 'append') {
+                config.updatePrDescription = mode;
+            }
+            else if (mode === 'true') {
+                // Backward compatibility: treat 'true' as 'append'
+                config.updatePrDescription = 'append';
+            }
+            else if (mode === 'false') {
+                // Backward compatibility: treat 'false' as 'disabled'
+                config.updatePrDescription = 'disabled';
+            }
+        }
         // Max files
         const maxFiles = core.getInput('max-files');
         if (maxFiles) {
@@ -36227,6 +36243,11 @@ class ConfigurationManager {
                 throw new Error(`Invalid linter: ${linter}`);
             }
         }
+        // Validate PR description mode
+        const validPrModes = ['disabled', 'overwrite', 'append'];
+        if (!validPrModes.includes(config.updatePrDescription)) {
+            throw new Error(`Invalid PR description mode: ${config.updatePrDescription}`);
+        }
         core.info('✅ Configuration validation passed');
     }
     /**
@@ -36304,6 +36325,7 @@ ConfigurationManager.DEFAULT_CONFIG = {
     },
     learningMode: true,
     enableCoaching: true,
+    updatePrDescription: 'append',
     maxFiles: 50,
     excludePaths: [
         'node_modules/**',
@@ -36318,7 +36340,7 @@ ConfigurationManager.DEFAULT_CONFIG = {
         '.git/**',
     ],
     models: {
-        anthropic: 'claude-3-5-sonnet-20241022',
+        anthropic: 'claude-sonnet-4-20250514',
         openai: 'gpt-4-turbo-preview',
         parameters: {
             temperature: 0.1,
@@ -37371,10 +37393,10 @@ async function run() {
         const lintResults = await lintingCoordinator.runAllLinters(reviewContext.changedFiles.map(f => f.filename));
         // Execute multi-agent review
         core.info('👁️ Deploying the Eyes of Argus...');
-        const agentResults = await orchestrator.executeReview(reviewContext);
+        const { results: agentResults, totalTime } = await orchestrator.executeReview(reviewContext);
         // Synthesize results
         core.info('⚡ Synthesizing review results...');
-        const finalReview = await synthesizer.synthesize(agentResults, lintResults, reviewContext);
+        const finalReview = await synthesizer.synthesize(agentResults, lintResults, reviewContext, totalTime);
         // Post results to GitHub
         core.info('📝 Argus speaks his wisdom to GitHub...');
         await githubService.postReview(finalReview, reviewContext);
@@ -37631,7 +37653,7 @@ class ReviewOrchestrator {
         if (failedAgents.length > 0) {
             core.warning(`⚠️ Failed agents: ${failedAgents.join(', ')}`);
         }
-        return successfulResults;
+        return { results: successfulResults, totalTime };
     }
     /**
      * Execute a single agent with retry logic and error handling
@@ -37644,10 +37666,10 @@ class ReviewOrchestrator {
                 const result = await agent.execute(context);
                 // Validate result
                 this.validateAgentResult(result, agentType);
-                // Apply agent weight to confidence score
+                // Apply agent weight to confidence score, but cap at 1.0
                 const weightedResult = {
                     ...result,
-                    confidence: result.confidence * this.config.agentWeights[agentType],
+                    confidence: Math.min(1.0, result.confidence * this.config.agentWeights[agentType]),
                     executionTime: Date.now() - startTime,
                 };
                 core.debug(`✅ ${agentType} agent completed in ${weightedResult.executionTime}ms`);
@@ -38803,6 +38825,10 @@ class GitHubService {
             await this.postMainReviewComment(review, pr.number);
             // Post individual issue comments
             await this.postIssueComments(review, pr.number, pr.head.sha);
+            // Update PR description if enabled
+            if (this.config.updatePrDescription !== 'disabled') {
+                await this.updatePrDescription(review, pr.number);
+            }
             // Submit review if there are blocking issues
             if (review.blockingIssues.length > 0) {
                 await this.submitBlockingReview(review, pr.number, pr.head.sha);
@@ -38875,6 +38901,112 @@ class GitHubService {
             }
         }
         core.info(`💬 Posted ${issuesWithLines.length} line-specific comments`);
+    }
+    /**
+     * Update PR description with Argus summary
+     */
+    async updatePrDescription(review, prNumber) {
+        try {
+            // Get current PR details
+            const prResponse = await this.octokit.rest.pulls.get({
+                owner: this.context.repo.owner,
+                repo: this.context.repo.repo,
+                pull_number: prNumber,
+            });
+            const currentDescription = prResponse.data.body || '';
+            const argusSection = this.generatePrDescriptionSummary(review);
+            let newDescription;
+            if (this.config.updatePrDescription === 'overwrite') {
+                // Overwrite mode: Replace entire description with Argus content
+                newDescription = argusSection;
+            }
+            else {
+                // Append mode: Add Argus section to existing content
+                const argusMarkerStart = '<!-- argus-pr-summary-start -->';
+                const argusMarkerEnd = '<!-- argus-pr-summary-end -->';
+                if (currentDescription.includes(argusMarkerStart)) {
+                    // Replace existing Argus section while preserving user content
+                    const beforeArgus = currentDescription.split(argusMarkerStart)[0].trimEnd();
+                    const afterArgusMatch = currentDescription.split(argusMarkerEnd);
+                    const afterArgus = afterArgusMatch.length > 1 ? afterArgusMatch[1].trimStart() : '';
+                    newDescription =
+                        beforeArgus + '\n\n' + argusSection + (afterArgus ? '\n\n' + afterArgus : '');
+                }
+                else {
+                    // First time: Append Argus section to existing description
+                    newDescription = currentDescription + (currentDescription ? '\n\n' : '') + argusSection;
+                }
+            }
+            // Update PR description
+            await this.octokit.rest.pulls.update({
+                owner: this.context.repo.owner,
+                repo: this.context.repo.repo,
+                pull_number: prNumber,
+                body: newDescription.trim(),
+            });
+            const mode = this.config.updatePrDescription;
+            core.info(`📝 Updated PR description with Argus summary (${mode} mode)`);
+        }
+        catch (error) {
+            core.warning(`Could not update PR description: ${error}`);
+        }
+    }
+    /**
+     * Generate PR description summary section
+     */
+    generatePrDescriptionSummary(review) {
+        const criticalIssues = review.blockingIssues.filter(issue => issue.severity === 'critical');
+        const highIssues = review.blockingIssues.filter(issue => issue.severity === 'error');
+        const warningIssues = [
+            ...review.blockingIssues.filter(issue => issue.severity === 'warning'),
+            ...review.recommendations.filter(issue => issue.severity === 'warning'),
+        ];
+        // Determine risk level
+        let riskLevel = '🟢 Low';
+        if (criticalIssues.length > 0) {
+            riskLevel = '🔴 Critical';
+        }
+        else if (highIssues.length > 0) {
+            riskLevel = '🟠 High';
+        }
+        else if (warningIssues.length > 0) {
+            riskLevel = '🟡 Medium';
+        }
+        let summary = '<!-- argus-pr-summary-start -->\n';
+        summary += '## 👁️ Argus Code Review Summary\n\n';
+        summary += `**Risk Level**: ${riskLevel}  \n`;
+        summary += `**Files Analyzed**: ${review.metrics.filesReviewed}  \n`;
+        summary += `**Issues Found**: ${review.metrics.issuesFound}  \n`;
+        if (review.metrics.issuesFound > 0) {
+            summary += '\n**Issue Breakdown**:\n';
+            if (criticalIssues.length > 0)
+                summary += `- 🔴 Critical: ${criticalIssues.length}\n`;
+            if (highIssues.length > 0)
+                summary += `- 🟠 High: ${highIssues.length}\n`;
+            if (warningIssues.length > 0)
+                summary += `- 🟡 Medium: ${warningIssues.length}\n`;
+            const infoIssues = review.recommendations.filter(issue => issue.severity === 'info').length;
+            if (infoIssues > 0)
+                summary += `- 🔵 Info: ${infoIssues}\n`;
+        }
+        // Add quick summary
+        summary += '\n';
+        if (criticalIssues.length > 0) {
+            summary +=
+                '⚠️ **Action Required**: Critical issues found that should be addressed before merging.\n\n';
+        }
+        else if (highIssues.length > 0) {
+            summary += '⚠️ **Review Recommended**: High-priority issues found.\n\n';
+        }
+        else if (review.metrics.issuesFound > 0) {
+            summary += '💡 **Improvements Available**: Minor issues and recommendations found.\n\n';
+        }
+        else {
+            summary += '✅ **Clean Code**: No issues detected by Argus review.\n\n';
+        }
+        summary += `📋 [View Detailed Review](#issuecomment-argus)\n`;
+        summary += '<!-- argus-pr-summary-end -->';
+        return summary;
     }
     /**
      * Map file line numbers to diff positions for PR comments
@@ -38982,7 +39114,7 @@ class GitHubService {
                 comment += `**File**: \`${issue.file}\`${issue.line ? ` (line ${issue.line})` : ''}\n\n`;
                 comment += `${issue.description}\n\n`;
                 if (issue.suggestion) {
-                    comment += '**Suggested Fix**:\n```\n' + issue.suggestion + '\n```\n\n';
+                    comment += '**Suggested Fix**:\n```\n' + issue.suggestion.comment + '\n```\n\n';
                 }
             }
         }
@@ -39172,9 +39304,8 @@ class ReviewSynthesizer {
     /**
      * Synthesize all agent results and linting into final review
      */
-    async synthesize(agentResults, lintResults, context) {
+    async synthesize(agentResults, lintResults, context, totalExecutionTime) {
         core.info('⚡ Synthesizing review from all agents...');
-        const startTime = Date.now();
         // Aggregate all issues from agents
         const allIssues = this.aggregateIssues(agentResults);
         // Remove duplicates and resolve conflicts
@@ -39185,8 +39316,8 @@ class ReviewSynthesizer {
         const coaching = this.generateCoaching(deduplicatedIssues);
         // Create overall summary
         const summary = this.generateSummary(agentResults, blockingIssues, recommendations, context);
-        // Calculate metrics
-        const metrics = this.calculateMetrics(agentResults, deduplicatedIssues, context, startTime);
+        // Calculate metrics with total execution time if provided
+        const metrics = this.calculateMetrics(agentResults, deduplicatedIssues, context, totalExecutionTime);
         const finalReview = {
             summary,
             blockingIssues,
@@ -39344,14 +39475,16 @@ class ReviewSynthesizer {
     /**
      * Calculate performance and quality metrics
      */
-    calculateMetrics(agentResults, issues, context, startTime) {
+    calculateMetrics(agentResults, issues, context, totalExecutionTime) {
         const filesReviewed = context.changedFiles.length;
-        const executionTime = Date.now() - startTime;
+        // Use provided total execution time, or sum agent execution times as fallback
+        const executionTime = totalExecutionTime ||
+            agentResults.reduce((sum, result) => sum + (result.executionTime || 0), 0);
         const agentPerformance = {};
         for (const result of agentResults) {
             agentPerformance[result.agent] = {
                 issuesFound: result.issues.length,
-                executionTime: result.executionTime,
+                executionTime: result.executionTime || 0,
                 averageConfidence: result.confidence,
             };
         }

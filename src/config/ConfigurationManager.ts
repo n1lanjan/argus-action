@@ -11,7 +11,7 @@
 import * as core from '@actions/core'
 import * as fs from 'fs/promises'
 import * as yaml from 'js-yaml'
-import { ReviewConfiguration } from '../types'
+import { ReviewConfiguration, PrDescriptionMode } from '../types'
 
 export class ConfigurationManager {
   private static readonly DEFAULT_CONFIG: ReviewConfiguration = {
@@ -30,6 +30,7 @@ export class ConfigurationManager {
     },
     learningMode: true,
     enableCoaching: true,
+    updatePrDescription: 'append',
     maxFiles: 50,
     excludePaths: [
       'node_modules/**',
@@ -44,7 +45,7 @@ export class ConfigurationManager {
       '.git/**',
     ],
     models: {
-      anthropic: 'claude-3-5-sonnet-20241022',
+      anthropic: 'claude-sonnet-4-20250514',
       openai: 'gpt-4-turbo-preview',
       parameters: {
         temperature: 0.1,
@@ -134,6 +135,21 @@ export class ConfigurationManager {
     const enableCoaching = core.getInput('enable-coaching')
     if (enableCoaching) {
       config.enableCoaching = enableCoaching.toLowerCase() === 'true'
+    }
+
+    // Update PR description
+    const updatePrDescription = core.getInput('update-pr-description')
+    if (updatePrDescription) {
+      const mode = updatePrDescription.toLowerCase()
+      if (mode === 'disabled' || mode === 'overwrite' || mode === 'append') {
+        config.updatePrDescription = mode as PrDescriptionMode
+      } else if (mode === 'true') {
+        // Backward compatibility: treat 'true' as 'append'
+        config.updatePrDescription = 'append'
+      } else if (mode === 'false') {
+        // Backward compatibility: treat 'false' as 'disabled'
+        config.updatePrDescription = 'disabled'
+      }
     }
 
     // Max files
@@ -257,6 +273,12 @@ export class ConfigurationManager {
       if (!validLinters.includes(linter)) {
         throw new Error(`Invalid linter: ${linter}`)
       }
+    }
+
+    // Validate PR description mode
+    const validPrModes: PrDescriptionMode[] = ['disabled', 'overwrite', 'append']
+    if (!validPrModes.includes(config.updatePrDescription)) {
+      throw new Error(`Invalid PR description mode: ${config.updatePrDescription}`)
     }
 
     core.info('✅ Configuration validation passed')

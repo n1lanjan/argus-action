@@ -30,7 +30,8 @@ jobs:
           enable-coaching: 'true'
           max-files: '50'
           include-linters: 'eslint,typescript,prettier'
-          anthropic-model: 'claude-3-5-sonnet-20241022'
+          anthropic-model: 'claude-sonnet-4-20250514'
+          update-pr-description: 'append'
           debug: 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

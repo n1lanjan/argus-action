@@ -71,7 +71,9 @@ export class ReviewOrchestrator {
   /**
    * Execute review using all configured agents
    */
-  async executeReview(context: ReviewContext): Promise<AgentResult[]> {
+  async executeReview(
+    context: ReviewContext
+  ): Promise<{ results: AgentResult[]; totalTime: number }> {
     const startTime = Date.now()
     core.info(`🚀 Starting multi-agent review with ${this.agents.size} agents`)
 
@@ -111,7 +113,7 @@ export class ReviewOrchestrator {
       core.warning(`⚠️ Failed agents: ${failedAgents.join(', ')}`)
     }
 
-    return successfulResults
+    return { results: successfulResults, totalTime }
   }
 
   /**
@@ -134,10 +136,10 @@ export class ReviewOrchestrator {
         // Validate result
         this.validateAgentResult(result, agentType)
 
-        // Apply agent weight to confidence score
+        // Apply agent weight to confidence score, but cap at 1.0
         const weightedResult = {
           ...result,
-          confidence: result.confidence * this.config.agentWeights[agentType],
+          confidence: Math.min(1.0, result.confidence * this.config.agentWeights[agentType]),
           executionTime: Date.now() - startTime,
         }
 

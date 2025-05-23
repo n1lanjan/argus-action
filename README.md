@@ -108,17 +108,19 @@ jobs:
           strictness-level: 'standard'
           focus-areas: 'security,architecture,performance'
           learning-mode: true
+          update-pr-description: append # Optional: append, overwrite, or disabled
 ```
 
 ### Configuration
 
-| Parameter          | Description                                                     | Default                       |
-| ------------------ | --------------------------------------------------------------- | ----------------------------- |
-| `strictness-level` | Review strictness: `coaching`, `standard`, `strict`, `blocking` | `standard`                    |
-| `focus-areas`      | Comma-separated focus areas                                     | `security,architecture,logic` |
-| `learning-mode`    | Enable adaptive learning from feedback                          | `true`                        |
-| `max-files`        | Maximum files to review (0 = no limit)                          | `50`                          |
-| `enable-coaching`  | Provide educational feedback                                    | `true`                        |
+| Parameter               | Description                                                     | Default                       |
+| ----------------------- | --------------------------------------------------------------- | ----------------------------- |
+| `strictness-level`      | Review strictness: `coaching`, `standard`, `strict`, `blocking` | `standard`                    |
+| `focus-areas`           | Comma-separated focus areas                                     | `security,architecture,logic` |
+| `learning-mode`         | Enable adaptive learning from feedback                          | `true`                        |
+| `max-files`             | Maximum files to review (0 = no limit)                          | `50`                          |
+| `enable-coaching`       | Provide educational feedback                                    | `true`                        |
+| `update-pr-description` | PR description mode: `disabled`, `overwrite`, `append`          | `append`                      |
 
 ## 👁️ The Eyes of Argus
 
@@ -199,6 +201,61 @@ Based on the developer's experience level and past feedback:
 - Explains why certain patterns are problematic
 - Suggests learning resources
 - Adapts feedback complexity to skill level
+
+### PR Description Enhancement
+
+Argus offers three modes for PR description updates via `update-pr-description`:
+
+#### **`disabled`**
+
+No changes to PR description - all review details stay in comments only.
+
+#### **`append` (default)**
+
+Appends Argus summary to existing description while preserving user content:
+
+- **Smart Replacement**: Updates Argus section on subsequent runs without
+  duplicating
+- **Content Preservation**: Maintains all user-written content before and after
+  Argus section
+- **Marker-Based**: Uses HTML comments to identify and replace only Argus
+  content
+
+#### **`overwrite`**
+
+Replaces entire PR description with Argus summary only:
+
+- **Complete Replacement**: Overwrites all existing content with Argus review
+- **Clean Slate**: Useful for automated PRs or when description should only
+  contain review data
+
+**Features (all modes except disabled):**
+
+- **Risk Assessment**: Visual risk level indicator (🟢 Low, 🟡 Medium, 🟠 High,
+  🔴 Critical)
+- **Quick Metrics**: Files analyzed, issues found, and execution time
+- **Issue Breakdown**: Count of critical, high, medium, and info-level issues
+- **Action Guidance**: Clear next steps based on findings
+- **Auto-Update**: Refreshes summary on new commits
+
+Example PR description enhancement:
+
+```markdown
+## 👁️ Argus Code Review Summary
+
+**Risk Level**: 🟡 Medium  
+**Files Analyzed**: 12  
+**Issues Found**: 8
+
+**Issue Breakdown**:
+
+- 🟡 Medium: 3
+- 🔵 Info: 5
+
+💡 **Improvements Available**: Minor issues and recommendations found.
+
+📋 [View Detailed Review](#issuecomment-argus)
+```
 
 ## 🔧 Development
 

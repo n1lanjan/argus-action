@@ -131,6 +131,11 @@ export class GitHubService {
       // Post individual issue comments
       await this.postIssueComments(review, pr.number, pr.head.sha)
 
+      // Update PR description if enabled
+      if (this.config.updatePrDescription !== 'disabled') {
+        await this.updatePrDescription(review, pr.number)
+      }
+
       // Submit review if there are blocking issues
       if (review.blockingIssues.length > 0) {
         await this.submitBlockingReview(review, pr.number, pr.head.sha)
@@ -216,6 +221,118 @@ export class GitHubService {
     }
 
     core.info(`💬 Posted ${issuesWithLines.length} line-specific comments`)
+  }
+
+  /**
+   * Update PR description with Argus summary
+   */
+  private async updatePrDescription(review: FinalReview, prNumber: number): Promise<void> {
+    try {
+      // Get current PR details
+      const prResponse = await this.octokit.rest.pulls.get({
+        owner: this.context.repo.owner,
+        repo: this.context.repo.repo,
+        pull_number: prNumber,
+      })
+
+      const currentDescription = prResponse.data.body || ''
+      const argusSection = this.generatePrDescriptionSummary(review)
+
+      let newDescription: string
+
+      if (this.config.updatePrDescription === 'overwrite') {
+        // Overwrite mode: Replace entire description with Argus content
+        newDescription = argusSection
+      } else {
+        // Append mode: Add Argus section to existing content
+        const argusMarkerStart = '<!-- argus-pr-summary-start -->'
+        const argusMarkerEnd = '<!-- argus-pr-summary-end -->'
+
+        if (currentDescription.includes(argusMarkerStart)) {
+          // Replace existing Argus section while preserving user content
+          const beforeArgus = currentDescription.split(argusMarkerStart)[0].trimEnd()
+          const afterArgusMatch = currentDescription.split(argusMarkerEnd)
+          const afterArgus = afterArgusMatch.length > 1 ? afterArgusMatch[1].trimStart() : ''
+
+          newDescription =
+            beforeArgus + '\n\n' + argusSection + (afterArgus ? '\n\n' + afterArgus : '')
+        } else {
+          // First time: Append Argus section to existing description
+          newDescription = currentDescription + (currentDescription ? '\n\n' : '') + argusSection
+        }
+      }
+
+      // Update PR description
+      await this.octokit.rest.pulls.update({
+        owner: this.context.repo.owner,
+        repo: this.context.repo.repo,
+        pull_number: prNumber,
+        body: newDescription.trim(),
+      })
+
+      const mode = this.config.updatePrDescription
+      core.info(`📝 Updated PR description with Argus summary (${mode} mode)`)
+    } catch (error) {
+      core.warning(`Could not update PR description: ${error}`)
+    }
+  }
+
+  /**
+   * Generate PR description summary section
+   */
+  private generatePrDescriptionSummary(review: FinalReview): string {
+    const criticalIssues = review.blockingIssues.filter(issue => issue.severity === 'critical')
+    const highIssues = review.blockingIssues.filter(issue => issue.severity === 'error')
+    const warningIssues = [
+      ...review.blockingIssues.filter(issue => issue.severity === 'warning'),
+      ...review.recommendations.filter(issue => issue.severity === 'warning'),
+    ]
+
+    // Determine risk level
+    let riskLevel = '🟢 Low'
+
+    if (criticalIssues.length > 0) {
+      riskLevel = '🔴 Critical'
+    } else if (highIssues.length > 0) {
+      riskLevel = '🟠 High'
+    } else if (warningIssues.length > 0) {
+      riskLevel = '🟡 Medium'
+    }
+
+    let summary = '<!-- argus-pr-summary-start -->\n'
+    summary += '## 👁️ Argus Code Review Summary\n\n'
+
+    summary += `**Risk Level**: ${riskLevel}  \n`
+    summary += `**Files Analyzed**: ${review.metrics.filesReviewed}  \n`
+    summary += `**Issues Found**: ${review.metrics.issuesFound}  \n`
+
+    if (review.metrics.issuesFound > 0) {
+      summary += '\n**Issue Breakdown**:\n'
+      if (criticalIssues.length > 0) summary += `- 🔴 Critical: ${criticalIssues.length}\n`
+      if (highIssues.length > 0) summary += `- 🟠 High: ${highIssues.length}\n`
+      if (warningIssues.length > 0) summary += `- 🟡 Medium: ${warningIssues.length}\n`
+
+      const infoIssues = review.recommendations.filter(issue => issue.severity === 'info').length
+      if (infoIssues > 0) summary += `- 🔵 Info: ${infoIssues}\n`
+    }
+
+    // Add quick summary
+    summary += '\n'
+    if (criticalIssues.length > 0) {
+      summary +=
+        '⚠️ **Action Required**: Critical issues found that should be addressed before merging.\n\n'
+    } else if (highIssues.length > 0) {
+      summary += '⚠️ **Review Recommended**: High-priority issues found.\n\n'
+    } else if (review.metrics.issuesFound > 0) {
+      summary += '💡 **Improvements Available**: Minor issues and recommendations found.\n\n'
+    } else {
+      summary += '✅ **Clean Code**: No issues detected by Argus review.\n\n'
+    }
+
+    summary += `📋 [View Detailed Review](#issuecomment-argus)\n`
+    summary += '<!-- argus-pr-summary-end -->'
+
+    return summary
   }
 
   /**
@@ -347,7 +464,7 @@ export class GitHubService {
         comment += `${issue.description}\n\n`
 
         if (issue.suggestion) {
-          comment += '**Suggested Fix**:\n```\n' + issue.suggestion + '\n```\n\n'
+          comment += '**Suggested Fix**:\n```\n' + issue.suggestion.comment + '\n```\n\n'
         }
       }
     }
