@@ -131,6 +131,11 @@ export class GitHubService {
       // Post individual issue comments
       await this.postIssueComments(review, pr.number, pr.head.sha)
 
+      // Update PR description if enabled
+      if (this.config.updatePrDescription !== 'disabled') {
+        await this.updatePrDescription(review, pr.number)
+      }
+
       // Submit review if there are blocking issues
       if (review.blockingIssues.length > 0) {
         await this.submitBlockingReview(review, pr.number, pr.head.sha)
@@ -186,21 +191,211 @@ export class GitHubService {
       if (issue.line === undefined) continue
 
       try {
-        await this.octokit.rest.pulls.createReviewComment({
+        // Try to map the full file line number to a diff line position
+        const diffPosition = await this.mapFileLinesWithDiff(issue.file, issue.line, prNumber)
+
+        if (!diffPosition) {
+          // Line is not in the diff - skip line-specific comment
+          core.debug(
+            `Line ${issue.line} in ${issue.file} is not part of the diff - skipping line comment`
+          )
+          continue
+        }
+
+        const commentParams = {
           owner: this.context.repo.owner,
           repo: this.context.repo.repo,
           pull_number: prNumber,
           body: this.formatIssueComment(issue),
           commit_id: commitSha,
           path: issue.file,
-          line: issue.line,
-        })
+          side: 'RIGHT' as const, // Default to RIGHT side (new/modified lines)
+          ...diffPosition, // This will include line and potentially start_line/start_side
+        }
+
+        await this.octokit.rest.pulls.createReviewComment(commentParams)
+        core.debug(`Posted comment for ${issue.file}:${issue.line}`)
       } catch (error) {
         core.warning(`Could not post comment for ${issue.file}:${issue.line}: ${error}`)
       }
     }
 
     core.info(`💬 Posted ${issuesWithLines.length} line-specific comments`)
+  }
+
+  /**
+   * Update PR description with Argus summary
+   */
+  private async updatePrDescription(review: FinalReview, prNumber: number): Promise<void> {
+    try {
+      // Get current PR details
+      const prResponse = await this.octokit.rest.pulls.get({
+        owner: this.context.repo.owner,
+        repo: this.context.repo.repo,
+        pull_number: prNumber,
+      })
+
+      const currentDescription = prResponse.data.body || ''
+      const argusSection = this.generatePrDescriptionSummary(review)
+
+      let newDescription: string
+
+      if (this.config.updatePrDescription === 'overwrite') {
+        // Overwrite mode: Replace entire description with Argus content
+        newDescription = argusSection
+      } else {
+        // Append mode: Add Argus section to existing content
+        const argusMarkerStart = '<!-- argus-pr-summary-start -->'
+        const argusMarkerEnd = '<!-- argus-pr-summary-end -->'
+
+        if (currentDescription.includes(argusMarkerStart)) {
+          // Replace existing Argus section while preserving user content
+          const beforeArgus = currentDescription.split(argusMarkerStart)[0].trimEnd()
+          const afterArgusMatch = currentDescription.split(argusMarkerEnd)
+          const afterArgus = afterArgusMatch.length > 1 ? afterArgusMatch[1].trimStart() : ''
+
+          newDescription =
+            beforeArgus + '\n\n' + argusSection + (afterArgus ? '\n\n' + afterArgus : '')
+        } else {
+          // First time: Append Argus section to existing description
+          newDescription = currentDescription + (currentDescription ? '\n\n' : '') + argusSection
+        }
+      }
+
+      // Update PR description
+      await this.octokit.rest.pulls.update({
+        owner: this.context.repo.owner,
+        repo: this.context.repo.repo,
+        pull_number: prNumber,
+        body: newDescription.trim(),
+      })
+
+      const mode = this.config.updatePrDescription
+      core.info(`📝 Updated PR description with Argus summary (${mode} mode)`)
+    } catch (error) {
+      core.warning(`Could not update PR description: ${error}`)
+    }
+  }
+
+  /**
+   * Generate PR description summary section
+   */
+  private generatePrDescriptionSummary(review: FinalReview): string {
+    const criticalIssues = review.blockingIssues.filter(issue => issue.severity === 'critical')
+    const highIssues = review.blockingIssues.filter(issue => issue.severity === 'error')
+    const warningIssues = [
+      ...review.blockingIssues.filter(issue => issue.severity === 'warning'),
+      ...review.recommendations.filter(issue => issue.severity === 'warning'),
+    ]
+
+    // Determine risk level
+    let riskLevel = '🟢 Low'
+
+    if (criticalIssues.length > 0) {
+      riskLevel = '🔴 Critical'
+    } else if (highIssues.length > 0) {
+      riskLevel = '🟠 High'
+    } else if (warningIssues.length > 0) {
+      riskLevel = '🟡 Medium'
+    }
+
+    let summary = '<!-- argus-pr-summary-start -->\n'
+    summary += '## 👁️ Argus Code Review Summary\n\n'
+
+    summary += `**Risk Level**: ${riskLevel}  \n`
+    summary += `**Files Analyzed**: ${review.metrics.filesReviewed}  \n`
+    summary += `**Issues Found**: ${review.metrics.issuesFound}  \n`
+
+    if (review.metrics.issuesFound > 0) {
+      summary += '\n**Issue Breakdown**:\n'
+      if (criticalIssues.length > 0) summary += `- 🔴 Critical: ${criticalIssues.length}\n`
+      if (highIssues.length > 0) summary += `- 🟠 High: ${highIssues.length}\n`
+      if (warningIssues.length > 0) summary += `- 🟡 Medium: ${warningIssues.length}\n`
+
+      const infoIssues = review.recommendations.filter(issue => issue.severity === 'info').length
+      if (infoIssues > 0) summary += `- 🔵 Info: ${infoIssues}\n`
+    }
+
+    // Add quick summary
+    summary += '\n'
+    if (criticalIssues.length > 0) {
+      summary +=
+        '⚠️ **Action Required**: Critical issues found that should be addressed before merging.\n\n'
+    } else if (highIssues.length > 0) {
+      summary += '⚠️ **Review Recommended**: High-priority issues found.\n\n'
+    } else if (review.metrics.issuesFound > 0) {
+      summary += '💡 **Improvements Available**: Minor issues and recommendations found.\n\n'
+    } else {
+      summary += '✅ **Clean Code**: No issues detected by Argus review.\n\n'
+    }
+
+    summary += `📋 [View Detailed Review](#issuecomment-argus)\n`
+    summary += '<!-- argus-pr-summary-end -->'
+
+    return summary
+  }
+
+  /**
+   * Map file line numbers to diff positions for PR comments
+   * Returns null if the line is not part of the diff
+   */
+  private async mapFileLinesWithDiff(
+    filename: string,
+    lineNumber: number,
+    prNumber: number
+  ): Promise<{ line: number } | null> {
+    try {
+      // Get the PR files to access the patch/diff information
+      const response = await this.octokit.rest.pulls.listFiles({
+        owner: this.context.repo.owner,
+        repo: this.context.repo.repo,
+        pull_number: prNumber,
+      })
+
+      const file = response.data.find(f => f.filename === filename)
+      if (!file || !file.patch) {
+        return null
+      }
+
+      // Parse the diff to find if our line number is in the diff
+      const diffLines = file.patch.split('\n')
+      let currentRightLine = 0
+
+      for (const diffLine of diffLines) {
+        // Parse hunk headers like "@@ -1,4 +1,6 @@"
+        const hunkMatch = diffLine.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/)
+        if (hunkMatch) {
+          currentRightLine = parseInt(hunkMatch[1]) - 1 // -1 because we increment before checking
+          continue
+        }
+
+        // Handle different types of diff lines
+        if (diffLine.startsWith('+')) {
+          // Addition - this line exists in the new version
+          currentRightLine++
+          if (currentRightLine === lineNumber) {
+            // Line is in the diff, return the actual line number
+            return { line: lineNumber }
+          }
+        } else if (diffLine.startsWith('-')) {
+          // Deletion - only in old version, skip
+          continue
+        } else if (diffLine.startsWith(' ')) {
+          // Context line - exists in both versions
+          currentRightLine++
+          if (currentRightLine === lineNumber) {
+            // Line is in the diff, return the actual line number
+            return { line: lineNumber }
+          }
+        }
+        // Lines starting with \ (like "\ No newline at end of file") are ignored
+      }
+
+      return null // Line not found in diff
+    } catch (error) {
+      core.debug(`Failed to map line ${lineNumber} in ${filename}: ${error}`)
+      return null
+    }
   }
 
   /**
@@ -269,7 +464,7 @@ export class GitHubService {
         comment += `${issue.description}\n\n`
 
         if (issue.suggestion) {
-          comment += '**Suggested Fix**:\n```\n' + issue.suggestion + '\n```\n\n'
+          comment += '**Suggested Fix**:\n```\n' + issue.suggestion.comment + '\n```\n\n'
         }
       }
     }

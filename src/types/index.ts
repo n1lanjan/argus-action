@@ -187,6 +187,8 @@ export interface DependencyVulnerability {
   fix?: string
 }
 
+export type PrDescriptionMode = 'disabled' | 'overwrite' | 'append'
+
 export interface ReviewConfiguration {
   /** Review strictness level */
   strictnessLevel: 'coaching' | 'standard' | 'strict' | 'blocking'
@@ -198,8 +200,10 @@ export interface ReviewConfiguration {
   linting: LinterConfig
   /** Whether to enable learning mode */
   learningMode: boolean
-  /** Whether to enable coaching */
+  /** Whether to enable coaching feedback */
   enableCoaching: boolean
+  /** How to handle PR description updates */
+  updatePrDescription: PrDescriptionMode
   /** Maximum files to review */
   maxFiles: number
   /** Path exclusion patterns */

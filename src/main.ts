@@ -70,11 +70,16 @@ async function run(): Promise<void> {
 
     // Execute multi-agent review
     core.info('👁️ Deploying the Eyes of Argus...')
-    const agentResults = await orchestrator.executeReview(reviewContext)
+    const { results: agentResults, totalTime } = await orchestrator.executeReview(reviewContext)
 
     // Synthesize results
     core.info('⚡ Synthesizing review results...')
-    const finalReview = await synthesizer.synthesize(agentResults, lintResults, reviewContext)
+    const finalReview = await synthesizer.synthesize(
+      agentResults,
+      lintResults,
+      reviewContext,
+      totalTime
+    )
 
     // Post results to GitHub
     core.info('📝 Argus speaks his wisdom to GitHub...')

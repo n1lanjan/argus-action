@@ -55,11 +55,11 @@ excludePaths:
 
 # AI model preferences
 models:
-  anthropic: claude-3-5-sonnet-20241022
-  openai: gpt-4-turbo-preview
+  anthropic: claude-sonnet-4-20250514
+  openai: gpt-4o-mini
   parameters:
     temperature: 0.1
-    maxTokens: 4000
+    maxTokens: 8096
 
 # Project-specific security settings
 security:
@@ -93,7 +93,7 @@ architecture:
 
 # Testing strategy
 testStrategy:
-  framework: 'Jest'
+  framework: 'vitest'
   patterns:
     - '**/*.test.ts'
     - '**/*.spec.ts'
@@ -168,7 +168,7 @@ integrations:
     projectKey: ''
 
   snyk:
-    enabled: true
+    enabled: false
     severity: 'medium'
 
   dependabot:

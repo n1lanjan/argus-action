@@ -5,37 +5,6 @@
 import * as core from '@actions/core'
 
 /**
- * Clean JSON string to handle common AI response formatting issues
- */
-function cleanJsonString(jsonText: string): string {
-  // Remove any leading/trailing whitespace
-  jsonText = jsonText.trim()
-
-  // Handle unescaped backticks and newlines in JSON string values
-  // This is a more robust approach that processes JSON structure
-  try {
-    // First, let's try a simple escape approach for common issues
-    let cleaned = jsonText
-
-    // Replace unescaped backticks with escaped ones (simple approach)
-    // We'll be conservative and only replace backticks that are clearly within string values
-    cleaned = cleaned.replace(/"([^"]*)`([^"]*)"/g, (match, before, after) => {
-      return `"${before}\\${'`'}${after}"`
-    })
-
-    // Handle unescaped newlines within JSON string values
-    cleaned = cleaned.replace(/"([^"]*)\n([^"]*)"/g, (match, before, after) => {
-      return `"${before}\\n${after}"`
-    })
-
-    return cleaned
-  } catch {
-    // If anything goes wrong, return the original text
-    return jsonText
-  }
-}
-
-/**
  * Robustly parse JSON from AI agent responses
  * Handles various formats including markdown code blocks and partial JSON
  */
@@ -57,20 +26,38 @@ export function parseAgentResponse(text: string, filename: string, agentType: st
         return []
       }
 
-      // Clean the JSON string to handle common AI response issues
-      let jsonText = jsonMatch[jsonMatch.length - 1]
-      const originalText = jsonText
-      jsonText = cleanJsonString(jsonText)
+      let jsonText = jsonMatch[jsonMatch.length - 1].trim()
+
+      // Handle truncated JSON responses (common with token limits)
+      if (!jsonText.endsWith('}') && !jsonText.endsWith(']')) {
+        core.warning(
+          `${agentType} response appears truncated for ${filename} - attempting recovery`
+        )
+
+        // Try to close the JSON structure properly
+        const openBraces = (jsonText.match(/\{/g) || []).length
+        const closeBraces = (jsonText.match(/\}/g) || []).length
+        const openBrackets = (jsonText.match(/\[/g) || []).length
+        const closeBrackets = (jsonText.match(/\]/g) || []).length
+
+        // Add missing closing braces/brackets
+        for (let i = 0; i < openBraces - closeBraces; i++) {
+          jsonText += '}'
+        }
+        for (let i = 0; i < openBrackets - closeBrackets; i++) {
+          jsonText += ']'
+        }
+
+        // Remove trailing comma if present
+        jsonText = jsonText.replace(/,(\s*[}\]])$/, '$1')
+      }
 
       try {
         parsedResponse = JSON.parse(jsonText)
       } catch (parseError) {
-        core.debug(
-          `JSON parse failed for ${agentType} agent on ${filename}. Original: ${originalText.substring(0, 100)}...`
-        )
-        core.debug(`Cleaned: ${jsonText.substring(0, 100)}...`)
-        core.debug(`Parse error: ${parseError}`)
-        throw parseError
+        core.warning(`Failed to parse ${agentType} JSON for ${filename}: ${parseError}`)
+        core.debug(`Problematic JSON: ${jsonText.substring(0, 200)}...`)
+        return []
       }
     }
 

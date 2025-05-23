@@ -31,11 +31,10 @@ export class ReviewSynthesizer {
   async synthesize(
     agentResults: AgentResult[],
     lintResults: LintResult,
-    context: ReviewContext
+    context: ReviewContext,
+    totalExecutionTime?: number
   ): Promise<FinalReview> {
     core.info('⚡ Synthesizing review from all agents...')
-
-    const startTime = Date.now()
 
     // Aggregate all issues from agents
     const allIssues = this.aggregateIssues(agentResults)
@@ -52,8 +51,13 @@ export class ReviewSynthesizer {
     // Create overall summary
     const summary = this.generateSummary(agentResults, blockingIssues, recommendations, context)
 
-    // Calculate metrics
-    const metrics = this.calculateMetrics(agentResults, deduplicatedIssues, context, startTime)
+    // Calculate metrics with total execution time if provided
+    const metrics = this.calculateMetrics(
+      agentResults,
+      deduplicatedIssues,
+      context,
+      totalExecutionTime
+    )
 
     const finalReview: FinalReview = {
       summary,
@@ -259,16 +263,20 @@ export class ReviewSynthesizer {
     agentResults: AgentResult[],
     issues: ReviewIssue[],
     context: ReviewContext,
-    startTime: number
+    totalExecutionTime?: number
   ): ReviewMetrics {
     const filesReviewed = context.changedFiles.length
-    const executionTime = Date.now() - startTime
+
+    // Use provided total execution time, or sum agent execution times as fallback
+    const executionTime =
+      totalExecutionTime ||
+      agentResults.reduce((sum, result) => sum + (result.executionTime || 0), 0)
 
     const agentPerformance: Record<string, any> = {}
     for (const result of agentResults) {
       agentPerformance[result.agent] = {
         issuesFound: result.issues.length,
-        executionTime: result.executionTime,
+        executionTime: result.executionTime || 0,
         averageConfidence: result.confidence,
       }
     }

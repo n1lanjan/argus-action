@@ -28,6 +28,11 @@ inputs:
     required: false
     default: 'true'
 
+  update-pr-description:
+    description: 'PR description update mode: disabled, overwrite, append'
+    required: false
+    default: 'append'
+
   exclude-paths:
     description: 'Paths to exclude from review (glob patterns, one per line)'
     required: false
@@ -52,7 +57,7 @@ inputs:
   anthropic-model:
     description: 'Anthropic model to use for Claude agents'
     required: false
-    default: 'claude-3-5-sonnet-20241022'
+    default: 'claude-sonnet-4-20250514'
 
   openai-model:
     description: 'OpenAI model to use for specialized tasks'
