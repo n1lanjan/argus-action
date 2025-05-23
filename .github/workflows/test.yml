@@ -76,7 +76,7 @@ jobs:
         run: npm run package
 
       - name: Run integration tests
-        run: npm run test:integration
+        run: npm test
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Note: For real integration tests, you'd need test API keys
@@ -86,6 +86,10 @@ jobs:
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
 
     steps:
       - name: Checkout code
