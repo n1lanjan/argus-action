@@ -1,0 +1,77 @@
+name: '🔍 Argus - The All-Seeing Code Guardian'
+description: 'Advanced AI-powered code review with specialized agent eyes watching over your code quality'
+author: 'Your Organization'
+
+inputs:
+  strictness-level:
+    description: 'Review strictness level: coaching, standard, strict, blocking'
+    required: false
+    default: 'standard'
+  
+  focus-areas:
+    description: 'Comma-separated focus areas: security, architecture, logic, performance, testing'
+    required: false
+    default: 'security,architecture,logic'
+  
+  learning-mode:
+    description: 'Enable adaptive learning from developer feedback'
+    required: false
+    default: 'true'
+  
+  max-files:
+    description: 'Maximum number of files to review (0 = no limit)'
+    required: false
+    default: '50'
+  
+  enable-coaching:
+    description: 'Provide educational feedback and coaching'
+    required: false
+    default: 'true'
+  
+  exclude-paths:
+    description: 'Paths to exclude from review (glob patterns, one per line)'
+    required: false
+    default: |
+      node_modules/**
+      dist/**
+      build/**
+      coverage/**
+      **/*.min.js
+      **/*.bundle.js
+      **/*.generated.*
+      **/*.lock
+      vendor/**
+      .git/**
+  
+  include-linters:
+    description: 'Comma-separated list of linters to run: eslint, typescript, prettier, sonar'
+    required: false
+    default: 'eslint,typescript,prettier'
+  
+  anthropic-model:
+    description: 'Anthropic model to use for Claude agents'
+    required: false
+    default: 'claude-3-5-sonnet-20241022'
+  
+  openai-model:
+    description: 'OpenAI model to use for specialized tasks'
+    required: false
+    default: 'gpt-4-turbo-preview'
+  
+  debug:
+    description: 'Enable debug logging'
+    required: false
+    default: 'false'
+  
+  team-config-path:
+    description: 'Path to team-specific configuration file'
+    required: false
+    default: '.github/argus-config.yml'
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
+
+branding:
+  icon: 'eye'
+  color: 'purple'
