@@ -1,14 +1,13 @@
 {
-  "extends": "./src/tsconfig.json",
+  "extends": "./tsconfig.json",
   "compilerOptions": {
-    "module": "commonjs",
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "declaration": false,
-    "declarationMap": false,
-    "sourceMap": false,
-    "skipLibCheck": true
+    "target": "ES2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "types": ["vitest/globals", "node"],
+    "allowImportingTsExtensions": true,
+    "noEmit": true
   },
-  "include": ["src/**/*.ts", "**/*.test.ts", "**/*.spec.ts"],
+  "include": ["src/**/*.ts", "src/**/*.test.ts", "src/**/*.spec.ts", "vitest.config.ts"],
   "exclude": ["node_modules", "dist"]
 }
