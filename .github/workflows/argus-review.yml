@@ -1,0 +1,38 @@
+name: 🔍 Argus Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  argus-review:
+    name: Argus Code Guardian
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 👁️ Argus - The All-Seeing Code Guardian
+        uses: ./
+        with:
+          strictness-level: 'standard'
+          focus-areas: 'security,architecture,logic,performance'
+          learning-mode: 'true'
+          enable-coaching: 'true'
+          max-files: '50'
+          include-linters: 'eslint,typescript,prettier'
+          anthropic-model: 'claude-3-5-sonnet-20241022'
+          debug: 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

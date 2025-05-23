@@ -53,7 +53,7 @@ export class ReviewSynthesizer {
     const summary = this.generateSummary(agentResults, blockingIssues, recommendations, context)
 
     // Calculate metrics
-    const metrics = this.calculateMetrics(agentResults, deduplicatedIssues, startTime)
+    const metrics = this.calculateMetrics(agentResults, deduplicatedIssues, context, startTime)
 
     const finalReview: FinalReview = {
       summary,
@@ -258,9 +258,10 @@ export class ReviewSynthesizer {
   private calculateMetrics(
     agentResults: AgentResult[],
     issues: ReviewIssue[],
+    context: ReviewContext,
     startTime: number
   ): ReviewMetrics {
-    const filesReviewed = new Set(issues.map(i => i.file)).size
+    const filesReviewed = context.changedFiles.length
     const executionTime = Date.now() - startTime
 
     const agentPerformance: Record<string, any> = {}

@@ -1,0 +1,5 @@
+# Run lint-staged for efficient checking of only staged files
+npx lint-staged
+
+# Check formatting
+npm run format:check

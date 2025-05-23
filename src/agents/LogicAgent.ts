@@ -20,6 +20,8 @@ import {
   ReviewIssue,
   ReviewConfiguration,
 } from '../types'
+import { buildLogicAnalysisPrompt } from '@/prompts'
+import { parseAgentResponse } from '@/utils'
 
 export class LogicAgent implements ReviewAgent {
   name: AgentType = 'logic'
@@ -91,7 +93,7 @@ export class LogicAgent implements ReviewAgent {
       return []
     }
 
-    const prompt = this.buildAnalysisPrompt(file, context)
+    const prompt = buildLogicAnalysisPrompt(file, context)
 
     try {
       const response = await this.anthropic.messages.create({
@@ -184,40 +186,28 @@ If no significant logic issues are found, respond with an empty array: []`
    */
   private parseLogicIssues(response: any, filename: string): ReviewIssue[] {
     const issues: ReviewIssue[] = []
+    const text = response.text || ''
+    const parsedIssues = parseAgentResponse(text, filename, 'logic')
 
-    try {
-      // Extract JSON from the response
-      const text = response.text || ''
-      const jsonMatch = text.match(/\[[\s\S]*\]/)
-
-      if (!jsonMatch) {
-        core.debug(`No issues found in ${filename}`)
-        return issues
-      }
-
-      const parsedIssues = JSON.parse(jsonMatch[0])
-
-      for (const issue of parsedIssues) {
-        issues.push({
-          severity: issue.severity || 'warning',
-          category: issue.category || 'logic-error',
-          title: issue.title,
-          description: issue.description,
-          file: filename,
-          line: issue.line,
-          endLine: issue.endLine,
-          snippet: issue.snippet,
-          suggestion: issue.suggestion,
-          coaching: {
-            rationale: issue.rationale || '',
-            resources: [],
-            bestPractice: issue.bestPractice || '',
-            level: this.determineComplexityLevel(issue.category),
-          },
-        })
-      }
-    } catch (error) {
-      core.warning(`Failed to parse logic analysis for ${filename}: ${error}`)
+    for (const issue of parsedIssues) {
+      issues.push({
+        severity: issue.severity || 'warning',
+        category: issue.category ? `logic-${issue.category}` : 'logic-general',
+        title: `🧠 ${issue.title}`,
+        description: issue.description,
+        file: filename,
+        line: issue.line,
+        endLine: issue.endLine,
+        snippet: issue.snippet,
+        suggestion:
+          typeof issue.suggestion === 'string' ? { comment: issue.suggestion } : issue.suggestion,
+        coaching: {
+          rationale: issue.rationale || '',
+          resources: this.getLogicResources(issue.category),
+          bestPractice: issue.bestPractice || '',
+          level: this.determineComplexityLevel(issue.category),
+        },
+      })
     }
 
     return issues
@@ -334,6 +324,24 @@ If no significant logic issues are found, respond with an empty array: []`
     }
 
     return summary
+  }
+
+  /**
+   * Get logic-specific learning resources based on category
+   */
+  private getLogicResources(category: string): string[] {
+    const resourceMap: Record<string, string[]> = {
+      'logic-error': ['Clean Code', 'Code Complete', 'Debugging Best Practices'],
+      'edge-case': ['Defensive Programming', 'Testing Edge Cases', 'Error Handling Patterns'],
+      'business-rule': ['Domain-Driven Design', 'Business Logic Patterns'],
+      algorithm: ['Algorithm Design Manual', 'Introduction to Algorithms'],
+      'state-management': ['State Patterns', 'Redux Documentation', 'State Machine Design'],
+      'error-handling': ['Exception Handling Best Practices', 'Resilience Patterns'],
+      integration: ['Integration Patterns', 'API Design Best Practices'],
+      'data-consistency': ['ACID Properties', 'Transaction Management', 'Data Integrity'],
+    }
+
+    return resourceMap[category] || ['Clean Code', 'Software Engineering Best Practices']
   }
 
   /**

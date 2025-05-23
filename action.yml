@@ -39,6 +39,7 @@ inputs:
       **/*.min.js
       **/*.bundle.js
       **/*.generated.*
+      **/*.map
       **/*.lock
       vendor/**
       .git/**

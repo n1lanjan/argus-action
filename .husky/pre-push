@@ -1,0 +1,16 @@
+echo "🔍 Running pre-push checks..."
+
+# Run full test suite
+npm test
+
+# Ensure build works
+npm run build
+
+# Check that dist/ is up to date
+if [ "$(git diff --ignore-space-at-eol dist/ | wc -l)" -gt "0" ]; then
+  echo "❌ Detected uncommitted changes in dist/ after build"
+  echo "Please run 'npm run build' and commit the changes"
+  exit 1
+fi
+
+echo "✅ All pre-push checks passed!"

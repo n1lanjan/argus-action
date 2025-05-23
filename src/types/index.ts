@@ -261,6 +261,13 @@ export interface AgentResult {
   executionTime: number
 }
 
+export interface SuggestedFix {
+  /** Descriptive comment about the fix */
+  comment: string
+  /** Actual code diff/change (if applicable) */
+  diff?: string
+}
+
 export interface ReviewIssue {
   /** Issue severity */
   severity: 'info' | 'warning' | 'error' | 'critical'
@@ -279,7 +286,7 @@ export interface ReviewIssue {
   /** Code snippet */
   snippet?: string
   /** Suggested fix */
-  suggestion?: string
+  suggestion?: SuggestedFix
   /** Educational context */
   coaching?: CoachingInfo
 }

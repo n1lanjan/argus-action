@@ -13,6 +13,7 @@
 
 import * as core from '@actions/core'
 import Anthropic from '@anthropic-ai/sdk'
+
 import {
   ReviewAgent,
   ReviewContext,
@@ -21,6 +22,8 @@ import {
   ReviewIssue,
   ReviewConfiguration,
 } from '../types'
+import { buildPerformanceAnalysisPrompt } from '@/prompts'
+import { parseAgentResponse } from '@/utils'
 
 export class PerformanceAgent implements ReviewAgent {
   name: AgentType = 'performance'
@@ -87,29 +90,47 @@ export class PerformanceAgent implements ReviewAgent {
   /**
    * Analyze a single file for performance issues
    */
-  private async analyzeFilePerformance(file: any, _context: ReviewContext): Promise<ReviewIssue[]> {
+  private async analyzeFilePerformance(file: any, context: ReviewContext): Promise<ReviewIssue[]> {
     if (!file.patch || !file.content) {
       return []
     }
 
-    // For now, return a placeholder analysis
-    // In a full implementation, this would use AI to analyze performance
-    const issues: ReviewIssue[] = []
+    const prompt = buildPerformanceAnalysisPrompt(file, context)
 
-    // Simple heuristic: check for common performance antipatterns
-    if (file.content.includes('console.log')) {
+    const response = await this.anthropic.messages.create({
+      model: this.model,
+      max_tokens: 2000,
+      messages: [{ role: 'user', content: prompt }],
+    })
+
+    return this.parsePerformanceIssues(response.content[0] as any, file.filename)
+  }
+
+  /**
+   * Parse Claude's response into performance issues
+   */
+  private parsePerformanceIssues(response: any, filename: string): ReviewIssue[] {
+    const issues: ReviewIssue[] = []
+    const text = response.text || ''
+    const parsedIssues = parseAgentResponse(text, filename, 'performance')
+
+    for (const issue of parsedIssues) {
       issues.push({
-        severity: 'info',
-        category: 'performance-logging',
-        title: '📝 Console logging in production code',
-        description: 'Console.log statements can impact performance in production',
-        file: file.filename,
-        suggestion: 'Consider using a proper logging library or removing debug logs',
+        severity: issue.severity || 'warning',
+        category: issue.category ? `performance-${issue.category}` : 'performance-general',
+        title: `⚡ ${issue.title}`,
+        description: this.formatPerformanceDescription(issue),
+        file: filename,
+        line: issue.line,
+        endLine: issue.endLine,
+        snippet: issue.snippet,
+        suggestion:
+          typeof issue.suggestion === 'string' ? { comment: issue.suggestion } : issue.suggestion,
         coaching: {
-          rationale: 'Console logging is synchronous and can slow down application performance',
-          resources: ['Production Logging Best Practices'],
-          bestPractice: 'Use conditional logging or proper logging frameworks',
-          level: 'beginner',
+          rationale: issue.rationale || '',
+          resources: this.getPerformanceResources(issue.category),
+          bestPractice: issue.bestPractice || '',
+          level: this.determinePerformanceComplexity(issue.category),
         },
       })
     }
@@ -144,6 +165,63 @@ export class PerformanceAgent implements ReviewAgent {
   }
 
   /**
+   * Format performance issue description with additional context
+   */
+  private formatPerformanceDescription(issue: any): string {
+    let description = issue.description
+
+    if (issue.impact) {
+      description += `\n\n**Performance Impact**: ${issue.impact}`
+    }
+
+    if (issue.complexity) {
+      description += `\n\n**Time Complexity**: ${issue.complexity}`
+    }
+
+    return description
+  }
+
+  /**
+   * Get performance learning resources based on category
+   */
+  private getPerformanceResources(category: string): string[] {
+    const resourceMap: Record<string, string[]> = {
+      'algorithm-efficiency': ['Algorithm Design Manual', 'Introduction to Algorithms'],
+      'memory-optimization': ['Memory Management Best Practices', 'Garbage Collection Tuning'],
+      'database-optimization': ['Database Performance Tuning', 'SQL Optimization Guide'],
+      'bundle-size': ['Web Performance Optimization', 'Bundle Analysis Tools'],
+      'runtime-performance': ['JavaScript Performance', 'Runtime Optimization Techniques'],
+      caching: ['Caching Strategies', 'Cache Design Patterns'],
+    }
+
+    return (
+      resourceMap[category] || ['Web Performance Best Practices', 'Performance Optimization Guide']
+    )
+  }
+
+  /**
+   * Determine complexity level for performance coaching
+   */
+  private determinePerformanceComplexity(
+    category: string
+  ): 'beginner' | 'intermediate' | 'advanced' {
+    const advancedCategories = [
+      'algorithm-efficiency',
+      'memory-optimization',
+      'database-optimization',
+    ]
+    const intermediateCategories = ['bundle-size', 'caching']
+
+    if (advancedCategories.includes(category)) {
+      return 'advanced'
+    } else if (intermediateCategories.includes(category)) {
+      return 'intermediate'
+    } else {
+      return 'beginner'
+    }
+  }
+
+  /**
    * Generate summary of performance analysis
    */
   private generateSummary(issues: ReviewIssue[], _context: ReviewContext): string {
@@ -151,6 +229,23 @@ export class PerformanceAgent implements ReviewAgent {
       return 'No significant performance issues detected in the code changes.'
     }
 
-    return `Found ${issues.length} performance issue(s) that could impact application speed and efficiency.`
+    const criticalCount = issues.filter(i => i.severity === 'critical').length
+    const errorCount = issues.filter(i => i.severity === 'error').length
+    const warningCount = issues.filter(i => i.severity === 'warning').length
+
+    let summary = `Found ${issues.length} performance issue(s): `
+
+    const severityParts = []
+    if (criticalCount > 0) severityParts.push(`${criticalCount} critical`)
+    if (errorCount > 0) severityParts.push(`${errorCount} high`)
+    if (warningCount > 0) severityParts.push(`${warningCount} medium`)
+
+    summary += severityParts.join(', ')
+
+    if (criticalCount > 0) {
+      summary += '. ⚡ Critical performance issues may significantly impact application speed.'
+    }
+
+    return summary
   }
 }

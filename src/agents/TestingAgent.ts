@@ -21,6 +21,8 @@ import {
   ReviewIssue,
   ReviewConfiguration,
 } from '../types'
+import { buildTestingAnalysisPrompt } from '@/prompts'
+import { parseAgentResponse } from '@/utils'
 
 export class TestingAgent implements ReviewAgent {
   name: AgentType = 'testing'
@@ -92,33 +94,49 @@ export class TestingAgent implements ReviewAgent {
       return []
     }
 
-    // For now, return a placeholder analysis
-    // In a full implementation, this would use AI to analyze test quality
+    const prompt = buildTestingAnalysisPrompt(file, context)
+
+    try {
+      const response = await this.anthropic.messages.create({
+        model: this.model,
+        max_tokens: 2000,
+        messages: [{ role: 'user', content: prompt }],
+      })
+
+      return this.parseTestingIssues(response.content[0] as any, file.filename)
+    } catch (error) {
+      core.warning(`Failed to analyze ${file.filename} for testing: ${error}`)
+      return []
+    }
+  }
+
+  /**
+   * Parse Claude's response into testing issues
+   */
+  private parseTestingIssues(response: any, filename: string): ReviewIssue[] {
     const issues: ReviewIssue[] = []
+    const text = response.text || ''
+    const parsedIssues = parseAgentResponse(text, filename, 'testing')
 
-    // Simple heuristic: check if this is a source file without corresponding tests
-    if (!this.isTestFile(file.filename) && this.isSourceFile(file.filename)) {
-      const hasCorrespondingTest = context.changedFiles.some(
-        f =>
-          this.isTestFile(f.filename) && f.filename.includes(file.filename.replace(/\.[^.]+$/, ''))
-      )
-
-      if (!hasCorrespondingTest) {
-        issues.push({
-          severity: 'info',
-          category: 'testing-coverage',
-          title: '🧪 Missing test coverage',
-          description: 'New or modified source file may need corresponding tests',
-          file: file.filename,
-          suggestion: 'Consider adding unit tests for the new functionality',
-          coaching: {
-            rationale: 'Tests help ensure code reliability and catch regressions',
-            resources: ['Testing Best Practices', 'Unit Testing Guide'],
-            bestPractice: 'Aim for high test coverage on business logic',
-            level: 'intermediate',
-          },
-        })
-      }
+    for (const issue of parsedIssues) {
+      issues.push({
+        severity: issue.severity || 'warning',
+        category: issue.category ? `testing-${issue.category}` : 'testing-general',
+        title: `🧪 ${issue.title}`,
+        description: this.formatTestingDescription(issue),
+        file: filename,
+        line: issue.line,
+        endLine: issue.endLine,
+        snippet: issue.snippet,
+        suggestion:
+          typeof issue.suggestion === 'string' ? { comment: issue.suggestion } : issue.suggestion,
+        coaching: {
+          rationale: issue.rationale || '',
+          resources: this.getTestingResources(issue.category),
+          bestPractice: issue.bestPractice || '',
+          level: this.determineTestingComplexity(issue.category),
+        },
+      })
     }
 
     return issues
@@ -155,6 +173,55 @@ export class TestingAgent implements ReviewAgent {
   }
 
   /**
+   * Format testing issue description with additional context
+   */
+  private formatTestingDescription(issue: any): string {
+    let description = issue.description
+
+    if (issue.testType) {
+      description += `\n\n**Test Type**: ${issue.testType}`
+    }
+
+    if (issue.coverage) {
+      description += `\n\n**Coverage Impact**: ${issue.coverage}`
+    }
+
+    return description
+  }
+
+  /**
+   * Get testing learning resources based on category
+   */
+  private getTestingResources(category: string): string[] {
+    const resourceMap: Record<string, string[]> = {
+      'test-coverage': ['Testing Strategies', 'Code Coverage Best Practices'],
+      'test-quality': ['Effective Unit Testing', 'Test-Driven Development'],
+      'missing-tests': ['Testing Pyramid', 'Test Strategy Guide'],
+      'test-maintainability': ['Maintainable Test Code', 'Test Refactoring'],
+      'integration-testing': ['Integration Testing Patterns', 'API Testing Guide'],
+      'performance-testing': ['Performance Testing Best Practices', 'Load Testing Guide'],
+    }
+
+    return resourceMap[category] || ['Testing Best Practices', 'Software Testing Guide']
+  }
+
+  /**
+   * Determine complexity level for testing coaching
+   */
+  private determineTestingComplexity(category: string): 'beginner' | 'intermediate' | 'advanced' {
+    const advancedCategories = ['integration-testing', 'performance-testing']
+    const intermediateCategories = ['test-maintainability', 'test-quality']
+
+    if (advancedCategories.includes(category)) {
+      return 'advanced'
+    } else if (intermediateCategories.includes(category)) {
+      return 'intermediate'
+    } else {
+      return 'beginner'
+    }
+  }
+
+  /**
    * Generate summary of testing analysis
    */
   private generateSummary(issues: ReviewIssue[], _context: ReviewContext): string {
@@ -162,6 +229,23 @@ export class TestingAgent implements ReviewAgent {
       return 'Test coverage and quality appear adequate for the changes made.'
     }
 
-    return `Found ${issues.length} testing-related issue(s) that could improve code reliability.`
+    const criticalCount = issues.filter(i => i.severity === 'critical').length
+    const errorCount = issues.filter(i => i.severity === 'error').length
+    const warningCount = issues.filter(i => i.severity === 'warning').length
+
+    let summary = `Found ${issues.length} testing issue(s): `
+
+    const severityParts = []
+    if (criticalCount > 0) severityParts.push(`${criticalCount} critical`)
+    if (errorCount > 0) severityParts.push(`${errorCount} high`)
+    if (warningCount > 0) severityParts.push(`${warningCount} medium`)
+
+    summary += severityParts.join(', ')
+
+    if (criticalCount > 0) {
+      summary += '. 🧪 Critical testing gaps may compromise code reliability.'
+    }
+
+    return summary
   }
 }
