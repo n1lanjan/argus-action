@@ -49,6 +49,59 @@ available.
    npm test
    ```
 
+## 🔧 Development Workflow
+
+This project uses **Husky** git hooks to ensure code quality at every step.
+
+### Git Hooks
+
+#### Pre-commit Hook
+
+- ✅ Runs ESLint with auto-fix on staged TypeScript/JavaScript files
+- ✅ Runs Prettier formatting on staged files
+- ✅ Runs TypeScript compilation check
+
+#### Commit Message Hook
+
+- ✅ Enforces conventional commit format: `<type>(<scope>): <description>`
+- ✅ Valid types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`,
+  `ci`, `perf`, `build`
+
+#### Pre-push Hook
+
+- ✅ Runs full test suite
+- ✅ Ensures build succeeds
+- ✅ Verifies dist/ is up to date
+
+### Development Commands
+
+```bash
+# Install and setup hooks (runs automatically)
+npm install
+
+# Test hooks manually
+npx lint-staged          # Test pre-commit formatting/linting
+npm test                 # Test what pre-push runs
+npm run build            # Test build
+
+# Skip hooks (use sparingly)
+git commit --no-verify   # Skip pre-commit and commit-msg
+git push --no-verify     # Skip pre-push
+```
+
+### Recommended Workflow
+
+1. **Make your changes**
+2. **Stage files**: `git add .`
+3. **Commit**: `git commit -m "feat: add new feature"`
+   - Pre-commit hooks run automatically
+   - Commit message is validated
+4. **Push**: `git push`
+   - Pre-push hooks run automatically
+
+If any hook fails, fix the issues and try again! The hooks help maintain
+consistent code quality.
+
 ## 🏗️ Architecture Overview
 
 The project follows a modular architecture:

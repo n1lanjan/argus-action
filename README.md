@@ -275,6 +275,40 @@ MIT License - see [LICENSE](LICENSE) file for details.
   [GitHub Discussions](https://github.com/your-org/argus/discussions)
 - **Documentation**: [Wiki](https://github.com/your-org/argus/wiki)
 
+## 🤝 Contributing
+
+We welcome contributions from the community! Whether you're fixing bugs, adding
+new features, or improving documentation, your help makes Argus better for
+everyone.
+
+### Quick Start for Contributors
+
+1. **Fork the repository**
+2. **Install dependencies**: `npm install`
+3. **Make your changes** (git hooks will ensure code quality)
+4. **Test locally**: `npm test && npm run build`
+5. **Submit a pull request**
+
+### Development Workflow
+
+This project uses **Husky** git hooks to maintain code quality:
+
+- **Pre-commit**: Runs ESLint, Prettier, and TypeScript checks
+- **Commit messages**: Enforces conventional commit format (`feat:`, `fix:`,
+  etc.)
+- **Pre-push**: Runs full test suite and build verification
+
+### How to Contribute
+
+- 🐛 **Bug Reports**: Found an issue?
+  [Open a bug report](https://github.com/n1lanjan/argus-action/issues)
+- 💡 **Feature Requests**: Have an idea?
+  [Share it with us](https://github.com/n1lanjan/argus-action/issues)
+- 📖 **Documentation**: Help improve our docs
+- 🔍 **New Agent Eyes**: Add specialized review capabilities
+
+For detailed guidelines, see our [**Contributing Guide**](CONTRIBUTING.md).
+
 ## 🔮 Roadmap
 
 - [ ] Visual Studio Code extension
@@ -283,3 +317,12 @@ MIT License - see [LICENSE](LICENSE) file for details.
 - [ ] Team analytics dashboard
 - [ ] Integration with more static analysis tools
 - [ ] Multi-language support expansion
+
+## 📄 License
+
+This project is licensed under the Apache 2.0 License - see the
+[LICENSE](LICENSE) file for details.
+
+---
+
+**👁️ Argus watches. Argus protects. Argus helps your code evolve.**

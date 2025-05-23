@@ -1,0 +1,8 @@
+# Run lint-staged for efficient checking of only staged files
+npx lint-staged
+
+# Run testsnp
+npm run test
+
+# Run build
+npm run build
