@@ -21,6 +21,7 @@ import {
   ReviewIssue,
   ReviewConfiguration,
 } from '../types'
+import { buildPerformanceAnalysisPrompt } from '@/prompts'
 
 export class PerformanceAgent implements ReviewAgent {
   name: AgentType = 'performance'
@@ -87,34 +88,57 @@ export class PerformanceAgent implements ReviewAgent {
   /**
    * Analyze a single file for performance issues
    */
-  private async analyzeFilePerformance(file: any, _context: ReviewContext): Promise<ReviewIssue[]> {
+  private async analyzeFilePerformance(file: any, context: ReviewContext): Promise<ReviewIssue[]> {
     if (!file.patch || !file.content) {
       return []
     }
 
-    // For now, return a placeholder analysis
-    // In a full implementation, this would use AI to analyze performance
-    const issues: ReviewIssue[] = []
+    try {
+      const prompt = buildPerformanceAnalysisPrompt(file, context)
 
-    // Simple heuristic: check for common performance antipatterns
-    if (file.content.includes('console.log')) {
-      issues.push({
-        severity: 'info',
-        category: 'performance-logging',
-        title: '📝 Console logging in production code',
-        description: 'Console.log statements can impact performance in production',
-        file: file.filename,
-        suggestion: 'Consider using a proper logging library or removing debug logs',
-        coaching: {
-          rationale: 'Console logging is synchronous and can slow down application performance',
-          resources: ['Production Logging Best Practices'],
-          bestPractice: 'Use conditional logging or proper logging frameworks',
-          level: 'beginner',
-        },
+      const response = await this.anthropic.messages.create({
+        model: this.model,
+        max_tokens: 2000,
+        messages: [{ role: 'user', content: prompt }],
       })
-    }
 
-    return issues
+      const content = response.content[0]
+      if (content.type !== 'text') {
+        core.warning('Unexpected response format from Performance Agent')
+        return []
+      }
+
+      // Parse the response
+      let parsed: any
+      try {
+        parsed = JSON.parse(content.text)
+      } catch (parseError) {
+        core.warning(`Failed to parse Performance Agent response: ${parseError}`)
+        return []
+      }
+
+      // Validate and transform issues
+      const issues: ReviewIssue[] = []
+      if (Array.isArray(parsed.issues)) {
+        for (const issue of parsed.issues) {
+          if (issue.severity && issue.category && issue.title && issue.description) {
+            issues.push({
+              ...issue,
+              file: file.filename,
+              suggestion:
+                typeof issue.suggestion === 'string'
+                  ? { comment: issue.suggestion }
+                  : issue.suggestion,
+            })
+          }
+        }
+      }
+
+      return issues
+    } catch (error) {
+      core.warning(`Performance Agent analysis failed for ${file.filename}: ${error}`)
+      return []
+    }
   }
 
   /**

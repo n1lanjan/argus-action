@@ -21,6 +21,7 @@ import {
   ReviewIssue,
   ReviewConfiguration,
 } from '../types'
+import { buildSecurityAnalysisPrompt } from '@/prompts'
 
 export class SecurityAgent implements ReviewAgent {
   name: AgentType = 'security'
@@ -96,7 +97,7 @@ export class SecurityAgent implements ReviewAgent {
       return []
     }
 
-    const prompt = this.buildSecurityAnalysisPrompt(file, context)
+    const prompt = buildSecurityAnalysisPrompt(file, context)
 
     try {
       const response = await this.anthropic.messages.create({
@@ -116,107 +117,6 @@ export class SecurityAgent implements ReviewAgent {
       core.warning(`Failed to analyze ${file.filename} for security: ${error}`)
       return []
     }
-  }
-
-  /**
-   * Build the security analysis prompt
-   */
-  private buildSecurityAnalysisPrompt(file: any, context: ReviewContext): string {
-    const { pullRequest, projectContext } = context
-    const isWebApp = projectContext.frameworks.some(f =>
-      ['react', 'vue', 'angular', 'express', 'fastapi', 'django'].includes(f.name.toLowerCase())
-    )
-
-    return `You are a security expert reviewing code changes for vulnerabilities and security risks. Analyze the following code with a focus on security implications.
-
-## Project Context
-- **Type**: ${isWebApp ? 'Web Application' : 'Application'}
-- **Frameworks**: ${projectContext.frameworks.map(f => f.name).join(', ')}
-- **Security Profile**: ${JSON.stringify(projectContext.security)}
-
-## Pull Request Context
-- **Title**: ${pullRequest.title}
-- **Description**: ${pullRequest.description}
-
-## File Analysis: ${file.filename}
-
-### Current File Content (for context):
-\`\`\`
-${file.content?.substring(0, 8000) || 'Content not available'}
-\`\`\`
-
-### Changes Made:
-\`\`\`diff
-${file.patch}
-\`\`\`
-
-## Security Analysis Instructions
-
-Analyze for these security concerns:
-
-### 1. Authentication & Authorization
-- Weak authentication mechanisms
-- Missing authorization checks
-- Privilege escalation risks
-- Session management issues
-
-### 2. Input Validation & Sanitization
-- SQL injection vulnerabilities
-- XSS (Cross-Site Scripting) risks
-- Command injection possibilities
-- Path traversal vulnerabilities
-- LDAP injection risks
-
-### 3. Data Protection
-- Sensitive data exposure
-- Improper data storage
-- Missing encryption
-- Information leakage in logs/errors
-
-### 4. Configuration Security
-- Hardcoded credentials
-- Insecure default configurations
-- Missing security headers
-- Unsafe CORS settings
-
-### 5. Cryptography
-- Weak cryptographic algorithms
-- Improper key management
-- Insecure random number generation
-- Timing attack vulnerabilities
-
-### 6. Dependencies & Third-party
-- Use of vulnerable libraries
-- Unsafe deserialization
-- Untrusted input processing
-
-## Response Format
-
-For each security issue found, provide:
-
-\`\`\`json
-{
-  "severity": "critical|error|warning|info",
-  "category": "authentication|authorization|input-validation|data-protection|configuration|cryptography|dependencies",
-  "title": "Brief security issue title",
-  "description": "Detailed explanation of the vulnerability",
-  "line": line_number_or_null,
-  "endLine": end_line_number_or_null,
-  "snippet": "vulnerable code snippet",
-  "suggestion": "specific security fix",
-  "rationale": "security impact and potential attack vectors",
-  "bestPractice": "relevant security best practice",
-  "cwe": "CWE number if applicable (e.g., CWE-79 for XSS)"
-}
-\`\`\`
-
-## Severity Guidelines
-- **Critical**: Direct path to system compromise
-- **Error**: High-impact vulnerability requiring immediate fix
-- **Warning**: Moderate security risk or security debt
-- **Info**: Security improvement opportunity
-
-Focus on changes that introduce or modify security-relevant code. If no security issues are found, respond with: []`
   }
 
   /**
@@ -246,7 +146,8 @@ Focus on changes that introduce or modify security-relevant code. If no security
           line: issue.line,
           endLine: issue.endLine,
           snippet: issue.snippet,
-          suggestion: issue.suggestion,
+          suggestion:
+            typeof issue.suggestion === 'string' ? { comment: issue.suggestion } : issue.suggestion,
           coaching: {
             rationale: issue.rationale || '',
             resources: this.getSecurityResources(issue.category),
@@ -281,7 +182,9 @@ Focus on changes that introduce or modify security-relevant code. If no security
             'Configuration file contains what appears to be hardcoded credentials or API keys.',
           file: file.filename,
           snippet: 'Content hidden for security',
-          suggestion: 'Use environment variables or secure secret management systems instead',
+          suggestion: {
+            comment: 'Use environment variables or secure secret management systems instead',
+          },
           coaching: {
             rationale:
               'Hardcoded secrets can be exposed in version control and compromise security',
@@ -349,7 +252,9 @@ Focus on changes that introduce or modify security-relevant code. If no security
         title: '⚠️ Permissive CORS Configuration',
         description: 'Wildcard CORS origin allows requests from any domain',
         file: file.filename,
-        suggestion: 'Specify allowed origins explicitly instead of using wildcard',
+        suggestion: {
+          comment: 'Specify allowed origins explicitly instead of using wildcard',
+        },
         coaching: {
           rationale: 'Wildcard CORS can enable CSRF attacks and unauthorized data access',
           resources: ['OWASP CORS Guide'],
@@ -367,7 +272,9 @@ Focus on changes that introduce or modify security-relevant code. If no security
         title: '🐛 Debug Mode Enabled',
         description: 'Debug mode may expose sensitive information',
         file: file.filename,
-        suggestion: 'Ensure debug mode is disabled in production',
+        suggestion: {
+          comment: 'Ensure debug mode is disabled in production',
+        },
         coaching: {
           rationale: 'Debug mode can leak stack traces, internal paths, and sensitive data',
           resources: ['OWASP Configuration Guide'],

@@ -21,6 +21,7 @@ import {
   ReviewIssue,
   ReviewConfiguration,
 } from '../types'
+import { buildArchitectureAnalysisPrompt } from '@/prompts'
 
 export class ArchitectureAgent implements ReviewAgent {
   name: AgentType = 'architecture'
@@ -96,7 +97,7 @@ export class ArchitectureAgent implements ReviewAgent {
       return []
     }
 
-    const prompt = this.buildArchitectureAnalysisPrompt(file, context)
+    const prompt = buildArchitectureAnalysisPrompt(file, context)
 
     try {
       const response = await this.anthropic.messages.create({
@@ -116,101 +117,6 @@ export class ArchitectureAgent implements ReviewAgent {
       core.warning(`Failed to analyze ${file.filename} for architecture: ${error}`)
       return []
     }
-  }
-
-  /**
-   * Build the architecture analysis prompt
-   */
-  private buildArchitectureAnalysisPrompt(file: any, context: ReviewContext): string {
-    const { pullRequest, projectContext } = context
-
-    return `You are a senior software architect reviewing code changes for architectural quality and design patterns. Analyze the following code with focus on software architecture principles.
-
-## Project Context
-- **Architecture Pattern**: ${projectContext.architecture.pattern}
-- **Frameworks**: ${projectContext.frameworks.map(f => f.name).join(', ')}
-- **Source Structure**: ${projectContext.architecture.sourceDirectories.join(', ')}
-- **Coding Conventions**: ${JSON.stringify(projectContext.conventions)}
-
-## Pull Request Context
-- **Title**: ${pullRequest.title}
-- **Description**: ${pullRequest.description}
-
-## File Analysis: ${file.filename}
-
-### Current File Content (for context):
-\`\`\`
-${file.content?.substring(0, 8000) || 'Content not available'}
-\`\`\`
-
-### Changes Made:
-\`\`\`diff
-${file.patch}
-\`\`\`
-
-## Architecture Analysis Instructions
-
-Please analyze the code changes for the following architectural aspects:
-
-### 1. SOLID Principles
-- **Single Responsibility**: Does each class/function have one reason to change?
-- **Open/Closed**: Is the code open for extension, closed for modification?
-- **Liskov Substitution**: Are inheritance relationships properly designed?
-- **Interface Segregation**: Are interfaces focused and cohesive?
-- **Dependency Inversion**: Does the code depend on abstractions, not concretions?
-
-### 2. Design Patterns
-- **Appropriate pattern usage**: Are design patterns used correctly?
-- **Pattern violations**: Are existing patterns being broken?
-- **Missing patterns**: Would design patterns improve the code?
-- **Over-engineering**: Are patterns being used unnecessarily?
-
-### 3. Code Organization
-- **File structure**: Is the file in the right location?
-- **Naming conventions**: Do names follow project conventions?
-- **Import organization**: Are imports properly structured?
-- **Separation of concerns**: Are different responsibilities properly separated?
-
-### 4. Dependency Management
-- **Coupling**: Is coupling between modules appropriate?
-- **Cohesion**: Are related functionalities grouped together?
-- **Circular dependencies**: Are there any circular dependency risks?
-- **Abstraction levels**: Are abstraction levels consistent?
-
-### 5. Modularity
-- **Module boundaries**: Are module boundaries well-defined?
-- **Public interfaces**: Are public APIs clean and minimal?
-- **Encapsulation**: Is internal state properly protected?
-- **Reusability**: Is the code designed for reuse?
-
-## Response Format
-
-For each architectural issue found, provide:
-
-\`\`\`json
-{
-  "severity": "critical|error|warning|info",
-  "category": "solid-violation|design-pattern|code-organization|dependency-management|modularity",
-  "title": "Brief architectural issue title",
-  "description": "Detailed explanation of the architectural problem",
-  "line": line_number_or_null,
-  "endLine": end_line_number_or_null,
-  "snippet": "relevant code snippet",
-  "suggestion": "specific architectural improvement",
-  "rationale": "why this architectural principle matters",
-  "bestPractice": "relevant architectural best practice",
-  "principle": "specific SOLID principle or pattern involved"
-}
-\`\`\`
-
-## Focus Areas
-- Code that introduces new dependencies or coupling
-- Changes to public interfaces or APIs
-- New classes or modules being introduced
-- Modifications to existing architectural patterns
-- Violations of established project conventions
-
-If no significant architectural issues are found, respond with: []`
   }
 
   /**
@@ -240,7 +146,8 @@ If no significant architectural issues are found, respond with: []`
           line: issue.line,
           endLine: issue.endLine,
           snippet: issue.snippet,
-          suggestion: issue.suggestion,
+          suggestion:
+            typeof issue.suggestion === 'string' ? { comment: issue.suggestion } : issue.suggestion,
           coaching: {
             rationale: issue.rationale || '',
             resources: this.getArchitectureResources(issue.category),
@@ -302,7 +209,9 @@ If no significant architectural issues are found, respond with: []`
           title: '📁 File Location Convention',
           description: `New file may not follow project structure conventions. Expected location: ${expectedLocation}`,
           file: file.filename,
-          suggestion: `Consider moving to ${expectedLocation} to maintain consistency`,
+          suggestion: {
+            comment: `Consider moving to ${expectedLocation} to maintain consistency`,
+          },
           coaching: {
             rationale:
               'Consistent file organization improves maintainability and developer experience',
@@ -332,7 +241,9 @@ If no significant architectural issues are found, respond with: []`
           title: '🔄 Naming Pattern Change',
           description: `File rename changes established naming pattern: ${file.previousFilename} → ${file.filename}`,
           file: file.filename,
-          suggestion: 'Ensure the new name follows project conventions and update related imports',
+          suggestion: {
+            comment: 'Ensure the new name follows project conventions and update related imports',
+          },
           coaching: {
             rationale: 'Consistent naming patterns help developers navigate the codebase',
             resources: ['Naming Conventions Guide'],
@@ -362,7 +273,9 @@ If no significant architectural issues are found, respond with: []`
           title: '🔄 Circular Dependency Risk',
           description: 'Changes may introduce circular dependency between modules',
           file: file.filename,
-          suggestion: 'Consider using dependency injection or extracting shared interfaces',
+          suggestion: {
+            comment: 'Consider using dependency injection or extracting shared interfaces',
+          },
           coaching: {
             rationale:
               'Circular dependencies make code harder to test and can cause runtime issues',

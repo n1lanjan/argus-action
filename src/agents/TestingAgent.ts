@@ -21,6 +21,7 @@ import {
   ReviewIssue,
   ReviewConfiguration,
 } from '../types'
+import { buildTestingAnalysisPrompt } from '@/prompts'
 
 export class TestingAgent implements ReviewAgent {
   name: AgentType = 'testing'
@@ -92,36 +93,52 @@ export class TestingAgent implements ReviewAgent {
       return []
     }
 
-    // For now, return a placeholder analysis
-    // In a full implementation, this would use AI to analyze test quality
-    const issues: ReviewIssue[] = []
+    try {
+      const prompt = buildTestingAnalysisPrompt(file, context)
 
-    // Simple heuristic: check if this is a source file without corresponding tests
-    if (!this.isTestFile(file.filename) && this.isSourceFile(file.filename)) {
-      const hasCorrespondingTest = context.changedFiles.some(
-        f =>
-          this.isTestFile(f.filename) && f.filename.includes(file.filename.replace(/\.[^.]+$/, ''))
-      )
+      const response = await this.anthropic.messages.create({
+        model: this.model,
+        max_tokens: 2000,
+        messages: [{ role: 'user', content: prompt }],
+      })
 
-      if (!hasCorrespondingTest) {
-        issues.push({
-          severity: 'info',
-          category: 'testing-coverage',
-          title: '🧪 Missing test coverage',
-          description: 'New or modified source file may need corresponding tests',
-          file: file.filename,
-          suggestion: 'Consider adding unit tests for the new functionality',
-          coaching: {
-            rationale: 'Tests help ensure code reliability and catch regressions',
-            resources: ['Testing Best Practices', 'Unit Testing Guide'],
-            bestPractice: 'Aim for high test coverage on business logic',
-            level: 'intermediate',
-          },
-        })
+      const content = response.content[0]
+      if (content.type !== 'text') {
+        core.warning('Unexpected response format from Testing Agent')
+        return []
       }
-    }
 
-    return issues
+      // Parse the response
+      let parsed: any
+      try {
+        parsed = JSON.parse(content.text)
+      } catch (parseError) {
+        core.warning(`Failed to parse Testing Agent response: ${parseError}`)
+        return []
+      }
+
+      // Validate and transform issues
+      const issues: ReviewIssue[] = []
+      if (Array.isArray(parsed.issues)) {
+        for (const issue of parsed.issues) {
+          if (issue.severity && issue.category && issue.title && issue.description) {
+            issues.push({
+              ...issue,
+              file: file.filename,
+              suggestion:
+                typeof issue.suggestion === 'string'
+                  ? { comment: issue.suggestion }
+                  : issue.suggestion,
+            })
+          }
+        }
+      }
+
+      return issues
+    } catch (error) {
+      core.warning(`Testing Agent analysis failed for ${file.filename}: ${error}`)
+      return []
+    }
   }
 
   /**

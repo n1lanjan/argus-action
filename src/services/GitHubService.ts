@@ -335,14 +335,23 @@ export class GitHubService {
     severity: string
     title: string
     description: string
-    suggestion?: string
+    suggestion?: { comment: string; diff?: string }
     coaching?: { rationale: string }
   }): string {
     let comment = `## ${this.getSeverityEmoji(issue.severity)} ${issue.title}\n\n`
     comment += `${issue.description}\n\n`
 
     if (issue.suggestion) {
-      comment += '**Suggested Fix**:\n```suggestion\n' + issue.suggestion + '\n```\n\n'
+      if (issue.suggestion.diff) {
+        // Has actual code changes - use GitHub suggestion format
+        comment += '**Suggested Fix**:\n```suggestion\n' + issue.suggestion.diff + '\n```\n\n'
+        if (issue.suggestion.comment) {
+          comment += issue.suggestion.comment + '\n\n'
+        }
+      } else {
+        // Only descriptive comment - use plain markdown
+        comment += '**Suggested Fix**:\n' + issue.suggestion.comment + '\n\n'
+      }
     }
 
     if (issue.coaching && this.config.enableCoaching) {

@@ -20,6 +20,7 @@ import {
   ReviewIssue,
   ReviewConfiguration,
 } from '../types'
+import { buildLogicAnalysisPrompt } from '@/prompts'
 
 export class LogicAgent implements ReviewAgent {
   name: AgentType = 'logic'
@@ -91,7 +92,7 @@ export class LogicAgent implements ReviewAgent {
       return []
     }
 
-    const prompt = this.buildAnalysisPrompt(file, context)
+    const prompt = buildLogicAnalysisPrompt(file, context)
 
     try {
       const response = await this.anthropic.messages.create({
@@ -207,7 +208,8 @@ If no significant logic issues are found, respond with an empty array: []`
           line: issue.line,
           endLine: issue.endLine,
           snippet: issue.snippet,
-          suggestion: issue.suggestion,
+          suggestion:
+            typeof issue.suggestion === 'string' ? { comment: issue.suggestion } : issue.suggestion,
           coaching: {
             rationale: issue.rationale || '',
             resources: [],

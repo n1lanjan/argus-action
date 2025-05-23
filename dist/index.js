@@ -39932,6 +39932,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.ArchitectureAgent = void 0;
 const core = __importStar(__nccwpck_require__(7484));
 const sdk_1 = __importDefault(__nccwpck_require__(121));
+const prompts_1 = __nccwpck_require__(6995);
 class ArchitectureAgent {
     constructor(config) {
         this.config = config;
@@ -39994,7 +39995,7 @@ class ArchitectureAgent {
         if (!file.patch || !file.content) {
             return [];
         }
-        const prompt = this.buildArchitectureAnalysisPrompt(file, context);
+        const prompt = (0, prompts_1.buildArchitectureAnalysisPrompt)(file, context);
         try {
             const response = await this.anthropic.messages.create({
                 model: this.model,
@@ -40013,99 +40014,6 @@ class ArchitectureAgent {
             core.warning(`Failed to analyze ${file.filename} for architecture: ${error}`);
             return [];
         }
-    }
-    /**
-     * Build the architecture analysis prompt
-     */
-    buildArchitectureAnalysisPrompt(file, context) {
-        const { pullRequest, projectContext } = context;
-        return `You are a senior software architect reviewing code changes for architectural quality and design patterns. Analyze the following code with focus on software architecture principles.
-
-## Project Context
-- **Architecture Pattern**: ${projectContext.architecture.pattern}
-- **Frameworks**: ${projectContext.frameworks.map(f => f.name).join(', ')}
-- **Source Structure**: ${projectContext.architecture.sourceDirectories.join(', ')}
-- **Coding Conventions**: ${JSON.stringify(projectContext.conventions)}
-
-## Pull Request Context
-- **Title**: ${pullRequest.title}
-- **Description**: ${pullRequest.description}
-
-## File Analysis: ${file.filename}
-
-### Current File Content (for context):
-\`\`\`
-${file.content?.substring(0, 8000) || 'Content not available'}
-\`\`\`
-
-### Changes Made:
-\`\`\`diff
-${file.patch}
-\`\`\`
-
-## Architecture Analysis Instructions
-
-Please analyze the code changes for the following architectural aspects:
-
-### 1. SOLID Principles
-- **Single Responsibility**: Does each class/function have one reason to change?
-- **Open/Closed**: Is the code open for extension, closed for modification?
-- **Liskov Substitution**: Are inheritance relationships properly designed?
-- **Interface Segregation**: Are interfaces focused and cohesive?
-- **Dependency Inversion**: Does the code depend on abstractions, not concretions?
-
-### 2. Design Patterns
-- **Appropriate pattern usage**: Are design patterns used correctly?
-- **Pattern violations**: Are existing patterns being broken?
-- **Missing patterns**: Would design patterns improve the code?
-- **Over-engineering**: Are patterns being used unnecessarily?
-
-### 3. Code Organization
-- **File structure**: Is the file in the right location?
-- **Naming conventions**: Do names follow project conventions?
-- **Import organization**: Are imports properly structured?
-- **Separation of concerns**: Are different responsibilities properly separated?
-
-### 4. Dependency Management
-- **Coupling**: Is coupling between modules appropriate?
-- **Cohesion**: Are related functionalities grouped together?
-- **Circular dependencies**: Are there any circular dependency risks?
-- **Abstraction levels**: Are abstraction levels consistent?
-
-### 5. Modularity
-- **Module boundaries**: Are module boundaries well-defined?
-- **Public interfaces**: Are public APIs clean and minimal?
-- **Encapsulation**: Is internal state properly protected?
-- **Reusability**: Is the code designed for reuse?
-
-## Response Format
-
-For each architectural issue found, provide:
-
-\`\`\`json
-{
-  "severity": "critical|error|warning|info",
-  "category": "solid-violation|design-pattern|code-organization|dependency-management|modularity",
-  "title": "Brief architectural issue title",
-  "description": "Detailed explanation of the architectural problem",
-  "line": line_number_or_null,
-  "endLine": end_line_number_or_null,
-  "snippet": "relevant code snippet",
-  "suggestion": "specific architectural improvement",
-  "rationale": "why this architectural principle matters",
-  "bestPractice": "relevant architectural best practice",
-  "principle": "specific SOLID principle or pattern involved"
-}
-\`\`\`
-
-## Focus Areas
-- Code that introduces new dependencies or coupling
-- Changes to public interfaces or APIs
-- New classes or modules being introduced
-- Modifications to existing architectural patterns
-- Violations of established project conventions
-
-If no significant architectural issues are found, respond with: []`;
     }
     /**
      * Parse Claude's response into architecture issues
@@ -40130,7 +40038,7 @@ If no significant architectural issues are found, respond with: []`;
                     line: issue.line,
                     endLine: issue.endLine,
                     snippet: issue.snippet,
-                    suggestion: issue.suggestion,
+                    suggestion: typeof issue.suggestion === 'string' ? { comment: issue.suggestion } : issue.suggestion,
                     coaching: {
                         rationale: issue.rationale || '',
                         resources: this.getArchitectureResources(issue.category),
@@ -40184,7 +40092,9 @@ If no significant architectural issues are found, respond with: []`;
                     title: '📁 File Location Convention',
                     description: `New file may not follow project structure conventions. Expected location: ${expectedLocation}`,
                     file: file.filename,
-                    suggestion: `Consider moving to ${expectedLocation} to maintain consistency`,
+                    suggestion: {
+                        comment: `Consider moving to ${expectedLocation} to maintain consistency`,
+                    },
                     coaching: {
                         rationale: 'Consistent file organization improves maintainability and developer experience',
                         resources: ['Clean Architecture', 'Project Structure Best Practices'],
@@ -40210,7 +40120,9 @@ If no significant architectural issues are found, respond with: []`;
                     title: '🔄 Naming Pattern Change',
                     description: `File rename changes established naming pattern: ${file.previousFilename} → ${file.filename}`,
                     file: file.filename,
-                    suggestion: 'Ensure the new name follows project conventions and update related imports',
+                    suggestion: {
+                        comment: 'Ensure the new name follows project conventions and update related imports',
+                    },
                     coaching: {
                         rationale: 'Consistent naming patterns help developers navigate the codebase',
                         resources: ['Naming Conventions Guide'],
@@ -40237,7 +40149,9 @@ If no significant architectural issues are found, respond with: []`;
                     title: '🔄 Circular Dependency Risk',
                     description: 'Changes may introduce circular dependency between modules',
                     file: file.filename,
-                    suggestion: 'Consider using dependency injection or extracting shared interfaces',
+                    suggestion: {
+                        comment: 'Consider using dependency injection or extracting shared interfaces',
+                    },
                     coaching: {
                         rationale: 'Circular dependencies make code harder to test and can cause runtime issues',
                         resources: ['Dependency Inversion Principle', 'Clean Architecture'],
@@ -40457,6 +40371,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.LogicAgent = void 0;
 const core = __importStar(__nccwpck_require__(7484));
 const sdk_1 = __importDefault(__nccwpck_require__(121));
+const prompts_1 = __nccwpck_require__(6995);
 class LogicAgent {
     constructor(config) {
         this.config = config;
@@ -40516,7 +40431,7 @@ class LogicAgent {
         if (!file.patch || !file.content) {
             return [];
         }
-        const prompt = this.buildAnalysisPrompt(file, context);
+        const prompt = (0, prompts_1.buildLogicAnalysisPrompt)(file, context);
         try {
             const response = await this.anthropic.messages.create({
                 model: this.model,
@@ -40624,7 +40539,7 @@ If no significant logic issues are found, respond with an empty array: []`;
                     line: issue.line,
                     endLine: issue.endLine,
                     snippet: issue.snippet,
-                    suggestion: issue.suggestion,
+                    suggestion: typeof issue.suggestion === 'string' ? { comment: issue.suggestion } : issue.suggestion,
                     coaching: {
                         rationale: issue.rationale || '',
                         resources: [],
@@ -40802,6 +40717,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.PerformanceAgent = void 0;
 const core = __importStar(__nccwpck_require__(7484));
 const sdk_1 = __importDefault(__nccwpck_require__(121));
+const prompts_1 = __nccwpck_require__(6995);
 class PerformanceAgent {
     constructor(config) {
         this.config = config;
@@ -40857,31 +40773,52 @@ class PerformanceAgent {
     /**
      * Analyze a single file for performance issues
      */
-    async analyzeFilePerformance(file, _context) {
+    async analyzeFilePerformance(file, context) {
         if (!file.patch || !file.content) {
             return [];
         }
-        // For now, return a placeholder analysis
-        // In a full implementation, this would use AI to analyze performance
-        const issues = [];
-        // Simple heuristic: check for common performance antipatterns
-        if (file.content.includes('console.log')) {
-            issues.push({
-                severity: 'info',
-                category: 'performance-logging',
-                title: '📝 Console logging in production code',
-                description: 'Console.log statements can impact performance in production',
-                file: file.filename,
-                suggestion: 'Consider using a proper logging library or removing debug logs',
-                coaching: {
-                    rationale: 'Console logging is synchronous and can slow down application performance',
-                    resources: ['Production Logging Best Practices'],
-                    bestPractice: 'Use conditional logging or proper logging frameworks',
-                    level: 'beginner',
-                },
+        try {
+            const prompt = (0, prompts_1.buildPerformanceAnalysisPrompt)(file, context);
+            const response = await this.anthropic.messages.create({
+                model: this.model,
+                max_tokens: 2000,
+                messages: [{ role: 'user', content: prompt }],
             });
+            const content = response.content[0];
+            if (content.type !== 'text') {
+                core.warning('Unexpected response format from Performance Agent');
+                return [];
+            }
+            // Parse the response
+            let parsed;
+            try {
+                parsed = JSON.parse(content.text);
+            }
+            catch (parseError) {
+                core.warning(`Failed to parse Performance Agent response: ${parseError}`);
+                return [];
+            }
+            // Validate and transform issues
+            const issues = [];
+            if (Array.isArray(parsed.issues)) {
+                for (const issue of parsed.issues) {
+                    if (issue.severity && issue.category && issue.title && issue.description) {
+                        issues.push({
+                            ...issue,
+                            file: file.filename,
+                            suggestion: typeof issue.suggestion === 'string'
+                                ? { comment: issue.suggestion }
+                                : issue.suggestion,
+                        });
+                    }
+                }
+            }
+            return issues;
         }
-        return issues;
+        catch (error) {
+            core.warning(`Performance Agent analysis failed for ${file.filename}: ${error}`);
+            return [];
+        }
     }
     /**
      * Determine if a file should be analyzed for performance
@@ -40978,6 +40915,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.SecurityAgent = void 0;
 const core = __importStar(__nccwpck_require__(7484));
 const sdk_1 = __importDefault(__nccwpck_require__(121));
+const prompts_1 = __nccwpck_require__(6995);
 class SecurityAgent {
     constructor(config) {
         this.config = config;
@@ -41040,7 +40978,7 @@ class SecurityAgent {
         if (!file.patch || !file.content) {
             return [];
         }
-        const prompt = this.buildSecurityAnalysisPrompt(file, context);
+        const prompt = (0, prompts_1.buildSecurityAnalysisPrompt)(file, context);
         try {
             const response = await this.anthropic.messages.create({
                 model: this.model,
@@ -41059,103 +40997,6 @@ class SecurityAgent {
             core.warning(`Failed to analyze ${file.filename} for security: ${error}`);
             return [];
         }
-    }
-    /**
-     * Build the security analysis prompt
-     */
-    buildSecurityAnalysisPrompt(file, context) {
-        const { pullRequest, projectContext } = context;
-        const isWebApp = projectContext.frameworks.some(f => ['react', 'vue', 'angular', 'express', 'fastapi', 'django'].includes(f.name.toLowerCase()));
-        return `You are a security expert reviewing code changes for vulnerabilities and security risks. Analyze the following code with a focus on security implications.
-
-## Project Context
-- **Type**: ${isWebApp ? 'Web Application' : 'Application'}
-- **Frameworks**: ${projectContext.frameworks.map(f => f.name).join(', ')}
-- **Security Profile**: ${JSON.stringify(projectContext.security)}
-
-## Pull Request Context
-- **Title**: ${pullRequest.title}
-- **Description**: ${pullRequest.description}
-
-## File Analysis: ${file.filename}
-
-### Current File Content (for context):
-\`\`\`
-${file.content?.substring(0, 8000) || 'Content not available'}
-\`\`\`
-
-### Changes Made:
-\`\`\`diff
-${file.patch}
-\`\`\`
-
-## Security Analysis Instructions
-
-Analyze for these security concerns:
-
-### 1. Authentication & Authorization
-- Weak authentication mechanisms
-- Missing authorization checks
-- Privilege escalation risks
-- Session management issues
-
-### 2. Input Validation & Sanitization
-- SQL injection vulnerabilities
-- XSS (Cross-Site Scripting) risks
-- Command injection possibilities
-- Path traversal vulnerabilities
-- LDAP injection risks
-
-### 3. Data Protection
-- Sensitive data exposure
-- Improper data storage
-- Missing encryption
-- Information leakage in logs/errors
-
-### 4. Configuration Security
-- Hardcoded credentials
-- Insecure default configurations
-- Missing security headers
-- Unsafe CORS settings
-
-### 5. Cryptography
-- Weak cryptographic algorithms
-- Improper key management
-- Insecure random number generation
-- Timing attack vulnerabilities
-
-### 6. Dependencies & Third-party
-- Use of vulnerable libraries
-- Unsafe deserialization
-- Untrusted input processing
-
-## Response Format
-
-For each security issue found, provide:
-
-\`\`\`json
-{
-  "severity": "critical|error|warning|info",
-  "category": "authentication|authorization|input-validation|data-protection|configuration|cryptography|dependencies",
-  "title": "Brief security issue title",
-  "description": "Detailed explanation of the vulnerability",
-  "line": line_number_or_null,
-  "endLine": end_line_number_or_null,
-  "snippet": "vulnerable code snippet",
-  "suggestion": "specific security fix",
-  "rationale": "security impact and potential attack vectors",
-  "bestPractice": "relevant security best practice",
-  "cwe": "CWE number if applicable (e.g., CWE-79 for XSS)"
-}
-\`\`\`
-
-## Severity Guidelines
-- **Critical**: Direct path to system compromise
-- **Error**: High-impact vulnerability requiring immediate fix
-- **Warning**: Moderate security risk or security debt
-- **Info**: Security improvement opportunity
-
-Focus on changes that introduce or modify security-relevant code. If no security issues are found, respond with: []`;
     }
     /**
      * Parse Claude's response into security issues
@@ -41180,7 +41021,7 @@ Focus on changes that introduce or modify security-relevant code. If no security
                     line: issue.line,
                     endLine: issue.endLine,
                     snippet: issue.snippet,
-                    suggestion: issue.suggestion,
+                    suggestion: typeof issue.suggestion === 'string' ? { comment: issue.suggestion } : issue.suggestion,
                     coaching: {
                         rationale: issue.rationale || '',
                         resources: this.getSecurityResources(issue.category),
@@ -41211,7 +41052,9 @@ Focus on changes that introduce or modify security-relevant code. If no security
                     description: 'Configuration file contains what appears to be hardcoded credentials or API keys.',
                     file: file.filename,
                     snippet: 'Content hidden for security',
-                    suggestion: 'Use environment variables or secure secret management systems instead',
+                    suggestion: {
+                        comment: 'Use environment variables or secure secret management systems instead',
+                    },
                     coaching: {
                         rationale: 'Hardcoded secrets can be exposed in version control and compromise security',
                         resources: ['OWASP Secret Management Cheat Sheet'],
@@ -41269,7 +41112,9 @@ Focus on changes that introduce or modify security-relevant code. If no security
                 title: '⚠️ Permissive CORS Configuration',
                 description: 'Wildcard CORS origin allows requests from any domain',
                 file: file.filename,
-                suggestion: 'Specify allowed origins explicitly instead of using wildcard',
+                suggestion: {
+                    comment: 'Specify allowed origins explicitly instead of using wildcard',
+                },
                 coaching: {
                     rationale: 'Wildcard CORS can enable CSRF attacks and unauthorized data access',
                     resources: ['OWASP CORS Guide'],
@@ -41286,7 +41131,9 @@ Focus on changes that introduce or modify security-relevant code. If no security
                 title: '🐛 Debug Mode Enabled',
                 description: 'Debug mode may expose sensitive information',
                 file: file.filename,
-                suggestion: 'Ensure debug mode is disabled in production',
+                suggestion: {
+                    comment: 'Ensure debug mode is disabled in production',
+                },
                 coaching: {
                     rationale: 'Debug mode can leak stack traces, internal paths, and sensitive data',
                     resources: ['OWASP Configuration Guide'],
@@ -41483,6 +41330,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.TestingAgent = void 0;
 const core = __importStar(__nccwpck_require__(7484));
 const sdk_1 = __importDefault(__nccwpck_require__(121));
+const prompts_1 = __nccwpck_require__(6995);
 class TestingAgent {
     constructor(config) {
         this.config = config;
@@ -41542,30 +41390,48 @@ class TestingAgent {
         if (!file.patch || !file.content) {
             return [];
         }
-        // For now, return a placeholder analysis
-        // In a full implementation, this would use AI to analyze test quality
-        const issues = [];
-        // Simple heuristic: check if this is a source file without corresponding tests
-        if (!this.isTestFile(file.filename) && this.isSourceFile(file.filename)) {
-            const hasCorrespondingTest = context.changedFiles.some(f => this.isTestFile(f.filename) && f.filename.includes(file.filename.replace(/\.[^.]+$/, '')));
-            if (!hasCorrespondingTest) {
-                issues.push({
-                    severity: 'info',
-                    category: 'testing-coverage',
-                    title: '🧪 Missing test coverage',
-                    description: 'New or modified source file may need corresponding tests',
-                    file: file.filename,
-                    suggestion: 'Consider adding unit tests for the new functionality',
-                    coaching: {
-                        rationale: 'Tests help ensure code reliability and catch regressions',
-                        resources: ['Testing Best Practices', 'Unit Testing Guide'],
-                        bestPractice: 'Aim for high test coverage on business logic',
-                        level: 'intermediate',
-                    },
-                });
+        try {
+            const prompt = (0, prompts_1.buildTestingAnalysisPrompt)(file, context);
+            const response = await this.anthropic.messages.create({
+                model: this.model,
+                max_tokens: 2000,
+                messages: [{ role: 'user', content: prompt }],
+            });
+            const content = response.content[0];
+            if (content.type !== 'text') {
+                core.warning('Unexpected response format from Testing Agent');
+                return [];
             }
+            // Parse the response
+            let parsed;
+            try {
+                parsed = JSON.parse(content.text);
+            }
+            catch (parseError) {
+                core.warning(`Failed to parse Testing Agent response: ${parseError}`);
+                return [];
+            }
+            // Validate and transform issues
+            const issues = [];
+            if (Array.isArray(parsed.issues)) {
+                for (const issue of parsed.issues) {
+                    if (issue.severity && issue.category && issue.title && issue.description) {
+                        issues.push({
+                            ...issue,
+                            file: file.filename,
+                            suggestion: typeof issue.suggestion === 'string'
+                                ? { comment: issue.suggestion }
+                                : issue.suggestion,
+                        });
+                    }
+                }
+            }
+            return issues;
         }
-        return issues;
+        catch (error) {
+            core.warning(`Testing Agent analysis failed for ${file.filename}: ${error}`);
+            return [];
+        }
     }
     /**
      * Check if file is a test file
@@ -43963,7 +43829,17 @@ class GitHubService {
         let comment = `## ${this.getSeverityEmoji(issue.severity)} ${issue.title}\n\n`;
         comment += `${issue.description}\n\n`;
         if (issue.suggestion) {
-            comment += '**Suggested Fix**:\n```suggestion\n' + issue.suggestion + '\n```\n\n';
+            if (issue.suggestion.diff) {
+                // Has actual code changes - use GitHub suggestion format
+                comment += '**Suggested Fix**:\n```suggestion\n' + issue.suggestion.diff + '\n```\n\n';
+                if (issue.suggestion.comment) {
+                    comment += issue.suggestion.comment + '\n\n';
+                }
+            }
+            else {
+                // Only descriptive comment - use plain markdown
+                comment += '**Suggested Fix**:\n' + issue.suggestion.comment + '\n\n';
+            }
         }
         if (issue.coaching && this.config.enableCoaching) {
             comment += `💡 **Why this matters**: ${issue.coaching.rationale}\n\n`;
@@ -44330,6 +44206,14 @@ class ReviewSynthesizer {
     }
 }
 exports.ReviewSynthesizer = ReviewSynthesizer;
+
+
+/***/ }),
+
+/***/ 6995:
+/***/ ((module) => {
+
+module.exports = eval("require")("@/prompts");
 
 
 /***/ }),
