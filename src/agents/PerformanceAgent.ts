@@ -13,6 +13,7 @@
 
 import * as core from '@actions/core'
 import Anthropic from '@anthropic-ai/sdk'
+
 import {
   ReviewAgent,
   ReviewContext,
@@ -22,6 +23,7 @@ import {
   ReviewConfiguration,
 } from '../types'
 import { buildPerformanceAnalysisPrompt } from '@/prompts'
+import { parseAgentResponse } from '@/utils'
 
 export class PerformanceAgent implements ReviewAgent {
   name: AgentType = 'performance'
@@ -93,52 +95,47 @@ export class PerformanceAgent implements ReviewAgent {
       return []
     }
 
-    try {
-      const prompt = buildPerformanceAnalysisPrompt(file, context)
+    const prompt = buildPerformanceAnalysisPrompt(file, context)
 
-      const response = await this.anthropic.messages.create({
-        model: this.model,
-        max_tokens: 2000,
-        messages: [{ role: 'user', content: prompt }],
+    const response = await this.anthropic.messages.create({
+      model: this.model,
+      max_tokens: 2000,
+      messages: [{ role: 'user', content: prompt }],
+    })
+
+    return this.parsePerformanceIssues(response.content[0] as any, file.filename)
+  }
+
+  /**
+   * Parse Claude's response into performance issues
+   */
+  private parsePerformanceIssues(response: any, filename: string): ReviewIssue[] {
+    const issues: ReviewIssue[] = []
+    const text = response.text || ''
+    const parsedIssues = parseAgentResponse(text, filename, 'performance')
+
+    for (const issue of parsedIssues) {
+      issues.push({
+        severity: issue.severity || 'warning',
+        category: issue.category ? `performance-${issue.category}` : 'performance-general',
+        title: `⚡ ${issue.title}`,
+        description: this.formatPerformanceDescription(issue),
+        file: filename,
+        line: issue.line,
+        endLine: issue.endLine,
+        snippet: issue.snippet,
+        suggestion:
+          typeof issue.suggestion === 'string' ? { comment: issue.suggestion } : issue.suggestion,
+        coaching: {
+          rationale: issue.rationale || '',
+          resources: this.getPerformanceResources(issue.category),
+          bestPractice: issue.bestPractice || '',
+          level: this.determinePerformanceComplexity(issue.category),
+        },
       })
-
-      const content = response.content[0]
-      if (content.type !== 'text') {
-        core.warning('Unexpected response format from Performance Agent')
-        return []
-      }
-
-      // Parse the response
-      let parsed: any
-      try {
-        parsed = JSON.parse(content.text)
-      } catch (parseError) {
-        core.warning(`Failed to parse Performance Agent response: ${parseError}`)
-        return []
-      }
-
-      // Validate and transform issues
-      const issues: ReviewIssue[] = []
-      if (Array.isArray(parsed.issues)) {
-        for (const issue of parsed.issues) {
-          if (issue.severity && issue.category && issue.title && issue.description) {
-            issues.push({
-              ...issue,
-              file: file.filename,
-              suggestion:
-                typeof issue.suggestion === 'string'
-                  ? { comment: issue.suggestion }
-                  : issue.suggestion,
-            })
-          }
-        }
-      }
-
-      return issues
-    } catch (error) {
-      core.warning(`Performance Agent analysis failed for ${file.filename}: ${error}`)
-      return []
     }
+
+    return issues
   }
 
   /**
@@ -168,6 +165,63 @@ export class PerformanceAgent implements ReviewAgent {
   }
 
   /**
+   * Format performance issue description with additional context
+   */
+  private formatPerformanceDescription(issue: any): string {
+    let description = issue.description
+
+    if (issue.impact) {
+      description += `\n\n**Performance Impact**: ${issue.impact}`
+    }
+
+    if (issue.complexity) {
+      description += `\n\n**Time Complexity**: ${issue.complexity}`
+    }
+
+    return description
+  }
+
+  /**
+   * Get performance learning resources based on category
+   */
+  private getPerformanceResources(category: string): string[] {
+    const resourceMap: Record<string, string[]> = {
+      'algorithm-efficiency': ['Algorithm Design Manual', 'Introduction to Algorithms'],
+      'memory-optimization': ['Memory Management Best Practices', 'Garbage Collection Tuning'],
+      'database-optimization': ['Database Performance Tuning', 'SQL Optimization Guide'],
+      'bundle-size': ['Web Performance Optimization', 'Bundle Analysis Tools'],
+      'runtime-performance': ['JavaScript Performance', 'Runtime Optimization Techniques'],
+      caching: ['Caching Strategies', 'Cache Design Patterns'],
+    }
+
+    return (
+      resourceMap[category] || ['Web Performance Best Practices', 'Performance Optimization Guide']
+    )
+  }
+
+  /**
+   * Determine complexity level for performance coaching
+   */
+  private determinePerformanceComplexity(
+    category: string
+  ): 'beginner' | 'intermediate' | 'advanced' {
+    const advancedCategories = [
+      'algorithm-efficiency',
+      'memory-optimization',
+      'database-optimization',
+    ]
+    const intermediateCategories = ['bundle-size', 'caching']
+
+    if (advancedCategories.includes(category)) {
+      return 'advanced'
+    } else if (intermediateCategories.includes(category)) {
+      return 'intermediate'
+    } else {
+      return 'beginner'
+    }
+  }
+
+  /**
    * Generate summary of performance analysis
    */
   private generateSummary(issues: ReviewIssue[], _context: ReviewContext): string {
@@ -175,6 +229,23 @@ export class PerformanceAgent implements ReviewAgent {
       return 'No significant performance issues detected in the code changes.'
     }
 
-    return `Found ${issues.length} performance issue(s) that could impact application speed and efficiency.`
+    const criticalCount = issues.filter(i => i.severity === 'critical').length
+    const errorCount = issues.filter(i => i.severity === 'error').length
+    const warningCount = issues.filter(i => i.severity === 'warning').length
+
+    let summary = `Found ${issues.length} performance issue(s): `
+
+    const severityParts = []
+    if (criticalCount > 0) severityParts.push(`${criticalCount} critical`)
+    if (errorCount > 0) severityParts.push(`${errorCount} high`)
+    if (warningCount > 0) severityParts.push(`${warningCount} medium`)
+
+    summary += severityParts.join(', ')
+
+    if (criticalCount > 0) {
+      summary += '. ⚡ Critical performance issues may significantly impact application speed.'
+    }
+
+    return summary
   }
 }

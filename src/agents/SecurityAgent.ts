@@ -22,6 +22,7 @@ import {
   ReviewConfiguration,
 } from '../types'
 import { buildSecurityAnalysisPrompt } from '@/prompts'
+import { parseAgentResponse } from '@/utils'
 
 export class SecurityAgent implements ReviewAgent {
   name: AgentType = 'security'
@@ -124,40 +125,28 @@ export class SecurityAgent implements ReviewAgent {
    */
   private parseSecurityIssues(response: any, filename: string): ReviewIssue[] {
     const issues: ReviewIssue[] = []
+    const text = response.text || ''
+    const parsedIssues = parseAgentResponse(text, filename, 'security')
 
-    try {
-      const text = response.text || ''
-      const jsonMatch = text.match(/\[[\s\S]*\]/)
-
-      if (!jsonMatch) {
-        core.debug(`No security issues found in ${filename}`)
-        return issues
-      }
-
-      const parsedIssues = JSON.parse(jsonMatch[0])
-
-      for (const issue of parsedIssues) {
-        issues.push({
-          severity: issue.severity || 'warning',
-          category: issue.category ? `security-${issue.category}` : 'security-general',
-          title: `🔒 ${issue.title}`,
-          description: this.formatSecurityDescription(issue),
-          file: filename,
-          line: issue.line,
-          endLine: issue.endLine,
-          snippet: issue.snippet,
-          suggestion:
-            typeof issue.suggestion === 'string' ? { comment: issue.suggestion } : issue.suggestion,
-          coaching: {
-            rationale: issue.rationale || '',
-            resources: this.getSecurityResources(issue.category),
-            bestPractice: issue.bestPractice || '',
-            level: this.determineSecurityComplexity(issue.category),
-          },
-        })
-      }
-    } catch (error) {
-      core.warning(`Failed to parse security analysis for ${filename}: ${error}`)
+    for (const issue of parsedIssues) {
+      issues.push({
+        severity: issue.severity || 'warning',
+        category: issue.category ? `security-${issue.category}` : 'security-general',
+        title: `🔒 ${issue.title}`,
+        description: this.formatSecurityDescription(issue),
+        file: filename,
+        line: issue.line,
+        endLine: issue.endLine,
+        snippet: issue.snippet,
+        suggestion:
+          typeof issue.suggestion === 'string' ? { comment: issue.suggestion } : issue.suggestion,
+        coaching: {
+          rationale: issue.rationale || '',
+          resources: this.getSecurityResources(issue.category),
+          bestPractice: issue.bestPractice || '',
+          level: this.determineSecurityComplexity(issue.category),
+        },
+      })
     }
 
     return issues

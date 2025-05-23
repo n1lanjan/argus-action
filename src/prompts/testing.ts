@@ -55,29 +55,31 @@ Analyze the code changes for testing quality and coverage including:
 5. **Dependencies**: External service integration testing
 
 ## Response Format
-Return a JSON array of testing issues:
+IMPORTANT: Return ONLY a valid JSON object with an "issues" array. Do NOT include markdown code blocks, backticks, or any other formatting.
 
-\`\`\`json
-[
-  {
-    "severity": "warning|info",
-    "category": "coverage|quality|edge-cases|structure|mocking|integration|performance",
-    "title": "Specific testing issue or opportunity",
-    "description": "Detailed explanation of the testing gap or improvement",
-    "line": 45,
-    "endLine": 50,
-    "snippet": "code that needs testing",
-    "suggestion": {
-      "comment": "Testing strategy and approach explanation",
-      "diff": "// Example test implementation\\ndescribe('UserService', () => {\\n  it('should handle invalid user ID gracefully', async () => {\\n    await expect(userService.findUser('')).rejects.toThrow('Invalid ID')\\n  })\\n})"
-    },
-    "rationale": "Why this testing is important",
-    "test_type": "unit|integration|e2e|performance",
-    "priority": "high|medium|low",
-    "coverage_impact": "What this would improve in test coverage"
-  }
-]
-\`\`\`
+Your response must be a valid JSON object in this exact format:
+
+{
+  "issues": [
+    {
+      "severity": "warning|info",
+      "category": "coverage|quality|edge-cases|structure|mocking|integration|performance",
+      "title": "Specific testing issue or opportunity",
+      "description": "Detailed explanation of the testing gap or improvement",
+      "line": 45,
+      "endLine": 50,
+      "snippet": "code that needs testing",
+      "suggestion": {
+        "comment": "Testing strategy and approach explanation",
+        "diff": "Example test implementation with proper escaping"
+      },
+      "rationale": "Why this testing is important",
+      "test_type": "unit|integration|e2e|performance",
+      "priority": "high|medium|low",
+      "coverage_impact": "What this would improve in test coverage"
+    }
+  ]
+}
 
 ### Suggestion Guidelines
 - **Include diff** for specific test implementation examples

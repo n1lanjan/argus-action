@@ -48,29 +48,31 @@ Analyze the code changes for architectural quality including:
 5. **Extensibility**: Future-proof design decisions
 
 ## Response Format
-Return a JSON array of architectural issues:
+IMPORTANT: Return ONLY a valid JSON object with an "issues" array. Do NOT include markdown code blocks, backticks, or any other formatting.
 
-\`\`\`json
-[
-  {
-    "severity": "error|warning|info",
-    "category": "solid-principles|design-patterns|code-organization|separation-concerns|dependencies|abstraction",
-    "title": "Specific architectural issue",
-    "description": "Detailed explanation of the architectural problem and its impact",
-    "line": 45,
-    "endLine": 60,
-    "snippet": "relevant code snippet",
-    "suggestion": {
-      "comment": "Explanation of architectural improvement needed",
-      "diff": "// Optional: Show refactored code structure\\ninterface UserService {\\n  findUser(id: string): Promise<User>\\n}"
-    },
-    "rationale": "Why this violates architectural principles",
-    "principle": "Single Responsibility Principle",
-    "impact": "maintainability|scalability|testability|readability",
-    "bestPractice": "Recommended architectural approach"
-  }
-]
-\`\`\`
+Your response must be a valid JSON object in this exact format:
+
+{
+  "issues": [
+    {
+      "severity": "error|warning|info",
+      "category": "solid-principles|design-patterns|code-organization|separation-concerns|dependencies|abstraction",
+      "title": "Specific architectural issue",
+      "description": "Detailed explanation of the architectural problem and its impact",
+      "line": 45,
+      "endLine": 60,
+      "snippet": "relevant code snippet",
+      "suggestion": {
+        "comment": "Explanation of architectural improvement needed",
+        "diff": "Optional: Show refactored code structure"
+      },
+      "rationale": "Why this violates architectural principles",
+      "principle": "Single Responsibility Principle",
+      "impact": "maintainability|scalability|testability|readability",
+      "bestPractice": "Recommended architectural approach"
+    }
+  ]
+}
 
 ### Suggestion Guidelines
 - **Include diff** for concrete refactoring examples

@@ -20,8 +20,9 @@ import {
   AgentType,
   ReviewIssue,
   ReviewConfiguration,
-} from '../types'
+} from '@/types'
 import { buildArchitectureAnalysisPrompt } from '@/prompts'
+import { parseAgentResponse } from '@/utils'
 
 export class ArchitectureAgent implements ReviewAgent {
   name: AgentType = 'architecture'
@@ -124,40 +125,28 @@ export class ArchitectureAgent implements ReviewAgent {
    */
   private parseArchitectureIssues(response: any, filename: string): ReviewIssue[] {
     const issues: ReviewIssue[] = []
+    const text = response.text || ''
+    const parsedIssues = parseAgentResponse(text, filename, 'architecture')
 
-    try {
-      const text = response.text || ''
-      const jsonMatch = text.match(/\[[\s\S]*\]/)
-
-      if (!jsonMatch) {
-        core.debug(`No architecture issues found in ${filename}`)
-        return issues
-      }
-
-      const parsedIssues = JSON.parse(jsonMatch[0])
-
-      for (const issue of parsedIssues) {
-        issues.push({
-          severity: issue.severity || 'warning',
-          category: issue.category ? `architecture-${issue.category}` : 'architecture-general',
-          title: `🏗️ ${issue.title}`,
-          description: this.formatArchitectureDescription(issue),
-          file: filename,
-          line: issue.line,
-          endLine: issue.endLine,
-          snippet: issue.snippet,
-          suggestion:
-            typeof issue.suggestion === 'string' ? { comment: issue.suggestion } : issue.suggestion,
-          coaching: {
-            rationale: issue.rationale || '',
-            resources: this.getArchitectureResources(issue.category),
-            bestPractice: issue.bestPractice || '',
-            level: this.determineArchitectureComplexity(issue.category),
-          },
-        })
-      }
-    } catch (error) {
-      core.warning(`Failed to parse architecture analysis for ${filename}: ${error}`)
+    for (const issue of parsedIssues) {
+      issues.push({
+        severity: issue.severity || 'warning',
+        category: issue.category ? `architecture-${issue.category}` : 'architecture-general',
+        title: `🏗️ ${issue.title}`,
+        description: this.formatArchitectureDescription(issue),
+        file: filename,
+        line: issue.line,
+        endLine: issue.endLine,
+        snippet: issue.snippet,
+        suggestion:
+          typeof issue.suggestion === 'string' ? { comment: issue.suggestion } : issue.suggestion,
+        coaching: {
+          rationale: issue.rationale || '',
+          resources: this.getArchitectureResources(issue.category),
+          bestPractice: issue.bestPractice || '',
+          level: this.determineArchitectureComplexity(issue.category),
+        },
+      })
     }
 
     return issues

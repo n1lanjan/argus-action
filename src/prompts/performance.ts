@@ -48,30 +48,32 @@ Analyze the code changes for performance impacts including:
 5. **Cost Analysis**: Infrastructure/runtime costs
 
 ## Response Format
-Return a JSON array of performance issues:
+IMPORTANT: Return ONLY a valid JSON object with an "issues" array. Do NOT include markdown code blocks, backticks, or any other formatting.
 
-\`\`\`json
-[
-  {
-    "severity": "error|warning|info",
-    "category": "algorithm|memory|io|caching|data-structures|rendering|bundle-size|database",
-    "title": "Specific performance issue",
-    "description": "Detailed explanation of the performance problem and its impact",
-    "line": 23,
-    "endLine": 28,
-    "snippet": "inefficient code snippet",
-    "suggestion": {
-      "comment": "Explanation of optimization strategy",
-      "diff": "// Optimized version\\nconst userMap = new Map(users.map(u => [u.id, u]))\\nconst result = ids.map(id => userMap.get(id))"
-    },
-    "rationale": "Why this impacts performance",
-    "complexity_current": "O(n²)",
-    "complexity_optimized": "O(n)",
-    "impact": "high|medium|low",
-    "measurement": "Specific metrics that would improve"
-  }
-]
-\`\`\`
+Your response must be a valid JSON object in this exact format:
+
+{
+  "issues": [
+    {
+      "severity": "error|warning|info",
+      "category": "algorithm|memory|io|caching|data-structures|rendering|bundle-size|database",
+      "title": "Specific performance issue",
+      "description": "Detailed explanation of the performance problem and its impact",
+      "line": 23,
+      "endLine": 28,
+      "snippet": "inefficient code snippet",
+      "suggestion": {
+        "comment": "Explanation of optimization strategy",
+        "diff": "Optimized version with proper escaping"
+      },
+      "rationale": "Why this impacts performance",
+      "complexity_current": "O(n²)",
+      "complexity_optimized": "O(n)",
+      "impact": "high|medium|low",
+      "measurement": "Specific metrics that would improve"
+    }
+  ]
+}
 
 ### Suggestion Guidelines
 - **Include diff** for concrete optimization code

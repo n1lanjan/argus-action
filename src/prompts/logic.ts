@@ -48,29 +48,31 @@ Perform deep logical analysis of the code changes focusing on:
 5. **Race Conditions**: Concurrency and timing issues
 
 ## Response Format
-Return a JSON array of logic issues:
+IMPORTANT: Return ONLY a valid JSON object with an "issues" array. Do NOT include markdown code blocks, backticks, or any other formatting.
 
-\`\`\`json
-[
-  {
-    "severity": "critical|error|warning|info",
-    "category": "correctness|edge-cases|error-handling|control-flow|data-flow|algorithm|business-logic|concurrency",
-    "title": "Specific logic issue identified",
-    "description": "Detailed explanation of the logical problem and its consequences",
-    "line": 67,
-    "endLine": 72,
-    "snippet": "problematic code snippet",
-    "suggestion": {
-      "comment": "Explanation of how to fix the logical issue",
-      "diff": "// Show corrected logic\\nif (users && users.length > 0) {\\n  return users.filter(u => u.isActive)\\n}\\nreturn []"
-    },
-    "rationale": "Why this is a logic problem",
-    "edge_case": "Specific scenario that would fail",
-    "test_case": "Input that would expose the bug",
-    "complexity": "O(n) vs O(n²) analysis if relevant"
-  }
-]
-\`\`\`
+Your response must be a valid JSON object in this exact format:
+
+{
+  "issues": [
+    {
+      "severity": "critical|error|warning|info",
+      "category": "correctness|edge-cases|error-handling|control-flow|data-flow|algorithm|business-logic|concurrency",
+      "title": "Specific logic issue identified",
+      "description": "Detailed explanation of the logical problem and its consequences",
+      "line": 67,
+      "endLine": 72,
+      "snippet": "problematic code snippet",
+      "suggestion": {
+        "comment": "Explanation of how to fix the logical issue",
+        "diff": "Show corrected logic with proper escaping"
+      },
+      "rationale": "Why this is a logic problem",
+      "edge_case": "Specific scenario that would fail",
+      "test_case": "Input that would expose the bug",
+      "complexity": "O(n) vs O(n²) analysis if relevant"
+    }
+  ]
+}
 
 ### Suggestion Guidelines
 - **Include diff** when showing corrected logic or bug fixes

@@ -46,29 +46,31 @@ Analyze the code changes for security vulnerabilities including:
 4. **Be practical**: Avoid false positives, focus on real risks
 
 ## Response Format
-Return a JSON array of security issues. For each issue, provide:
+IMPORTANT: Return ONLY a valid JSON object with an "issues" array. Do NOT include markdown code blocks, backticks, or any other formatting.
 
-\`\`\`json
-[
-  {
-    "severity": "critical|error|warning|info",
-    "category": "input-validation|authentication|authorization|data-protection|api-security|dependencies|crypto|configuration",
-    "title": "Brief, actionable title",
-    "description": "Detailed explanation of the vulnerability and its impact",
-    "line": 123,
-    "endLine": 125,
-    "snippet": "relevant code snippet",
-    "suggestion": {
-      "comment": "Clear explanation of what needs to be fixed and why",
-      "diff": "// Optional: Provide actual code fix if possible\\nconst sanitized = escapeHtml(userInput)"
-    },
-    "rationale": "Why this is a security risk",
-    "cwe": "CWE-79",
-    "attack_vector": "How this could be exploited",
-    "remediation_priority": "immediate|high|medium|low"
-  }
-]
-\`\`\`
+Your response must be a valid JSON object in this exact format:
+
+{
+  "issues": [
+    {
+      "severity": "critical|error|warning|info",
+      "category": "input-validation|authentication|authorization|data-protection|api-security|dependencies|crypto|configuration",
+      "title": "Brief, actionable title",
+      "description": "Detailed explanation of the vulnerability and its impact",
+      "line": 123,
+      "endLine": 125,
+      "snippet": "relevant code snippet",
+      "suggestion": {
+        "comment": "Clear explanation of what needs to be fixed and why",
+        "diff": "Optional: Provide actual code fix if possible"
+      },
+      "rationale": "Why this is a security risk",
+      "cwe": "CWE-79",
+      "attack_vector": "How this could be exploited",
+      "remediation_priority": "immediate|high|medium|low"
+    }
+  ]
+}
 
 ### Suggestion Guidelines
 - **Include diff** when you can provide specific code fixes

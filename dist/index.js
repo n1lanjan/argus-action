@@ -34361,6 +34361,7 @@ exports.ArchitectureAgent = void 0;
 const core = __importStar(__nccwpck_require__(7484));
 const sdk_1 = __importDefault(__nccwpck_require__(121));
 const prompts_1 = __nccwpck_require__(831);
+const utils_1 = __nccwpck_require__(8541);
 class ArchitectureAgent {
     constructor(config) {
         this.config = config;
@@ -34448,36 +34449,26 @@ class ArchitectureAgent {
      */
     parseArchitectureIssues(response, filename) {
         const issues = [];
-        try {
-            const text = response.text || '';
-            const jsonMatch = text.match(/\[[\s\S]*\]/);
-            if (!jsonMatch) {
-                core.debug(`No architecture issues found in ${filename}`);
-                return issues;
-            }
-            const parsedIssues = JSON.parse(jsonMatch[0]);
-            for (const issue of parsedIssues) {
-                issues.push({
-                    severity: issue.severity || 'warning',
-                    category: issue.category ? `architecture-${issue.category}` : 'architecture-general',
-                    title: `🏗️ ${issue.title}`,
-                    description: this.formatArchitectureDescription(issue),
-                    file: filename,
-                    line: issue.line,
-                    endLine: issue.endLine,
-                    snippet: issue.snippet,
-                    suggestion: typeof issue.suggestion === 'string' ? { comment: issue.suggestion } : issue.suggestion,
-                    coaching: {
-                        rationale: issue.rationale || '',
-                        resources: this.getArchitectureResources(issue.category),
-                        bestPractice: issue.bestPractice || '',
-                        level: this.determineArchitectureComplexity(issue.category),
-                    },
-                });
-            }
-        }
-        catch (error) {
-            core.warning(`Failed to parse architecture analysis for ${filename}: ${error}`);
+        const text = response.text || '';
+        const parsedIssues = (0, utils_1.parseAgentResponse)(text, filename, 'architecture');
+        for (const issue of parsedIssues) {
+            issues.push({
+                severity: issue.severity || 'warning',
+                category: issue.category ? `architecture-${issue.category}` : 'architecture-general',
+                title: `🏗️ ${issue.title}`,
+                description: this.formatArchitectureDescription(issue),
+                file: filename,
+                line: issue.line,
+                endLine: issue.endLine,
+                snippet: issue.snippet,
+                suggestion: typeof issue.suggestion === 'string' ? { comment: issue.suggestion } : issue.suggestion,
+                coaching: {
+                    rationale: issue.rationale || '',
+                    resources: this.getArchitectureResources(issue.category),
+                    bestPractice: issue.bestPractice || '',
+                    level: this.determineArchitectureComplexity(issue.category),
+                },
+            });
         }
         return issues;
     }
@@ -34801,6 +34792,7 @@ exports.LogicAgent = void 0;
 const core = __importStar(__nccwpck_require__(7484));
 const sdk_1 = __importDefault(__nccwpck_require__(121));
 const prompts_1 = __nccwpck_require__(831);
+const utils_1 = __nccwpck_require__(8541);
 class LogicAgent {
     constructor(config) {
         this.config = config;
@@ -34949,37 +34941,26 @@ If no significant logic issues are found, respond with an empty array: []`;
      */
     parseLogicIssues(response, filename) {
         const issues = [];
-        try {
-            // Extract JSON from the response
-            const text = response.text || '';
-            const jsonMatch = text.match(/\[[\s\S]*\]/);
-            if (!jsonMatch) {
-                core.debug(`No issues found in ${filename}`);
-                return issues;
-            }
-            const parsedIssues = JSON.parse(jsonMatch[0]);
-            for (const issue of parsedIssues) {
-                issues.push({
-                    severity: issue.severity || 'warning',
-                    category: issue.category || 'logic-error',
-                    title: issue.title,
-                    description: issue.description,
-                    file: filename,
-                    line: issue.line,
-                    endLine: issue.endLine,
-                    snippet: issue.snippet,
-                    suggestion: typeof issue.suggestion === 'string' ? { comment: issue.suggestion } : issue.suggestion,
-                    coaching: {
-                        rationale: issue.rationale || '',
-                        resources: [],
-                        bestPractice: issue.bestPractice || '',
-                        level: this.determineComplexityLevel(issue.category),
-                    },
-                });
-            }
-        }
-        catch (error) {
-            core.warning(`Failed to parse logic analysis for ${filename}: ${error}`);
+        const text = response.text || '';
+        const parsedIssues = (0, utils_1.parseAgentResponse)(text, filename, 'logic');
+        for (const issue of parsedIssues) {
+            issues.push({
+                severity: issue.severity || 'warning',
+                category: issue.category ? `logic-${issue.category}` : 'logic-general',
+                title: `🧠 ${issue.title}`,
+                description: issue.description,
+                file: filename,
+                line: issue.line,
+                endLine: issue.endLine,
+                snippet: issue.snippet,
+                suggestion: typeof issue.suggestion === 'string' ? { comment: issue.suggestion } : issue.suggestion,
+                coaching: {
+                    rationale: issue.rationale || '',
+                    resources: this.getLogicResources(issue.category),
+                    bestPractice: issue.bestPractice || '',
+                    level: this.determineComplexityLevel(issue.category),
+                },
+            });
         }
         return issues;
     }
@@ -35069,6 +35050,22 @@ If no significant logic issues are found, respond with an empty array: []`;
         return summary;
     }
     /**
+     * Get logic-specific learning resources based on category
+     */
+    getLogicResources(category) {
+        const resourceMap = {
+            'logic-error': ['Clean Code', 'Code Complete', 'Debugging Best Practices'],
+            'edge-case': ['Defensive Programming', 'Testing Edge Cases', 'Error Handling Patterns'],
+            'business-rule': ['Domain-Driven Design', 'Business Logic Patterns'],
+            'algorithm': ['Algorithm Design Manual', 'Introduction to Algorithms'],
+            'state-management': ['State Patterns', 'Redux Documentation', 'State Machine Design'],
+            'error-handling': ['Exception Handling Best Practices', 'Resilience Patterns'],
+            'integration': ['Integration Patterns', 'API Design Best Practices'],
+            'data-consistency': ['ACID Properties', 'Transaction Management', 'Data Integrity'],
+        };
+        return resourceMap[category] || ['Clean Code', 'Software Engineering Best Practices'];
+    }
+    /**
      * Determine complexity level for coaching
      */
     determineComplexityLevel(category) {
@@ -35148,6 +35145,7 @@ exports.PerformanceAgent = void 0;
 const core = __importStar(__nccwpck_require__(7484));
 const sdk_1 = __importDefault(__nccwpck_require__(121));
 const prompts_1 = __nccwpck_require__(831);
+const utils_1 = __nccwpck_require__(8541);
 class PerformanceAgent {
     constructor(config) {
         this.config = config;
@@ -35207,48 +35205,41 @@ class PerformanceAgent {
         if (!file.patch || !file.content) {
             return [];
         }
-        try {
-            const prompt = (0, prompts_1.buildPerformanceAnalysisPrompt)(file, context);
-            const response = await this.anthropic.messages.create({
-                model: this.model,
-                max_tokens: 2000,
-                messages: [{ role: 'user', content: prompt }],
+        const prompt = (0, prompts_1.buildPerformanceAnalysisPrompt)(file, context);
+        const response = await this.anthropic.messages.create({
+            model: this.model,
+            max_tokens: 2000,
+            messages: [{ role: 'user', content: prompt }],
+        });
+        return this.parsePerformanceIssues(response.content[0], file.filename);
+    }
+    /**
+     * Parse Claude's response into performance issues
+     */
+    parsePerformanceIssues(response, filename) {
+        const issues = [];
+        const text = response.text || '';
+        const parsedIssues = (0, utils_1.parseAgentResponse)(text, filename, 'performance');
+        for (const issue of parsedIssues) {
+            issues.push({
+                severity: issue.severity || 'warning',
+                category: issue.category ? `performance-${issue.category}` : 'performance-general',
+                title: `⚡ ${issue.title}`,
+                description: this.formatPerformanceDescription(issue),
+                file: filename,
+                line: issue.line,
+                endLine: issue.endLine,
+                snippet: issue.snippet,
+                suggestion: typeof issue.suggestion === 'string' ? { comment: issue.suggestion } : issue.suggestion,
+                coaching: {
+                    rationale: issue.rationale || '',
+                    resources: this.getPerformanceResources(issue.category),
+                    bestPractice: issue.bestPractice || '',
+                    level: this.determinePerformanceComplexity(issue.category),
+                },
             });
-            const content = response.content[0];
-            if (content.type !== 'text') {
-                core.warning('Unexpected response format from Performance Agent');
-                return [];
-            }
-            // Parse the response
-            let parsed;
-            try {
-                parsed = JSON.parse(content.text);
-            }
-            catch (parseError) {
-                core.warning(`Failed to parse Performance Agent response: ${parseError}`);
-                return [];
-            }
-            // Validate and transform issues
-            const issues = [];
-            if (Array.isArray(parsed.issues)) {
-                for (const issue of parsed.issues) {
-                    if (issue.severity && issue.category && issue.title && issue.description) {
-                        issues.push({
-                            ...issue,
-                            file: file.filename,
-                            suggestion: typeof issue.suggestion === 'string'
-                                ? { comment: issue.suggestion }
-                                : issue.suggestion,
-                        });
-                    }
-                }
-            }
-            return issues;
         }
-        catch (error) {
-            core.warning(`Performance Agent analysis failed for ${file.filename}: ${error}`);
-            return [];
-        }
+        return issues;
     }
     /**
      * Determine if a file should be analyzed for performance
@@ -35275,13 +35266,75 @@ class PerformanceAgent {
         return 0.7; // Placeholder confidence
     }
     /**
+     * Format performance issue description with additional context
+     */
+    formatPerformanceDescription(issue) {
+        let description = issue.description;
+        if (issue.impact) {
+            description += `\n\n**Performance Impact**: ${issue.impact}`;
+        }
+        if (issue.complexity) {
+            description += `\n\n**Time Complexity**: ${issue.complexity}`;
+        }
+        return description;
+    }
+    /**
+     * Get performance learning resources based on category
+     */
+    getPerformanceResources(category) {
+        const resourceMap = {
+            'algorithm-efficiency': ['Algorithm Design Manual', 'Introduction to Algorithms'],
+            'memory-optimization': ['Memory Management Best Practices', 'Garbage Collection Tuning'],
+            'database-optimization': ['Database Performance Tuning', 'SQL Optimization Guide'],
+            'bundle-size': ['Web Performance Optimization', 'Bundle Analysis Tools'],
+            'runtime-performance': ['JavaScript Performance', 'Runtime Optimization Techniques'],
+            caching: ['Caching Strategies', 'Cache Design Patterns'],
+        };
+        return (resourceMap[category] || ['Web Performance Best Practices', 'Performance Optimization Guide']);
+    }
+    /**
+     * Determine complexity level for performance coaching
+     */
+    determinePerformanceComplexity(category) {
+        const advancedCategories = [
+            'algorithm-efficiency',
+            'memory-optimization',
+            'database-optimization',
+        ];
+        const intermediateCategories = ['bundle-size', 'caching'];
+        if (advancedCategories.includes(category)) {
+            return 'advanced';
+        }
+        else if (intermediateCategories.includes(category)) {
+            return 'intermediate';
+        }
+        else {
+            return 'beginner';
+        }
+    }
+    /**
      * Generate summary of performance analysis
      */
     generateSummary(issues, _context) {
         if (issues.length === 0) {
             return 'No significant performance issues detected in the code changes.';
         }
-        return `Found ${issues.length} performance issue(s) that could impact application speed and efficiency.`;
+        const criticalCount = issues.filter(i => i.severity === 'critical').length;
+        const errorCount = issues.filter(i => i.severity === 'error').length;
+        const warningCount = issues.filter(i => i.severity === 'warning').length;
+        let summary = `Found ${issues.length} performance issue(s): `;
+        const severityParts = [];
+        if (criticalCount > 0)
+            severityParts.push(`${criticalCount} critical`);
+        if (errorCount > 0)
+            severityParts.push(`${errorCount} high`);
+        if (warningCount > 0)
+            severityParts.push(`${warningCount} medium`);
+        summary += severityParts.join(', ');
+        if (criticalCount > 0) {
+            summary += '. ⚡ Critical performance issues may significantly impact application speed.';
+        }
+        return summary;
     }
 }
 exports.PerformanceAgent = PerformanceAgent;
@@ -35347,6 +35400,7 @@ exports.SecurityAgent = void 0;
 const core = __importStar(__nccwpck_require__(7484));
 const sdk_1 = __importDefault(__nccwpck_require__(121));
 const prompts_1 = __nccwpck_require__(831);
+const utils_1 = __nccwpck_require__(8541);
 class SecurityAgent {
     constructor(config) {
         this.config = config;
@@ -35434,36 +35488,26 @@ class SecurityAgent {
      */
     parseSecurityIssues(response, filename) {
         const issues = [];
-        try {
-            const text = response.text || '';
-            const jsonMatch = text.match(/\[[\s\S]*\]/);
-            if (!jsonMatch) {
-                core.debug(`No security issues found in ${filename}`);
-                return issues;
-            }
-            const parsedIssues = JSON.parse(jsonMatch[0]);
-            for (const issue of parsedIssues) {
-                issues.push({
-                    severity: issue.severity || 'warning',
-                    category: issue.category ? `security-${issue.category}` : 'security-general',
-                    title: `🔒 ${issue.title}`,
-                    description: this.formatSecurityDescription(issue),
-                    file: filename,
-                    line: issue.line,
-                    endLine: issue.endLine,
-                    snippet: issue.snippet,
-                    suggestion: typeof issue.suggestion === 'string' ? { comment: issue.suggestion } : issue.suggestion,
-                    coaching: {
-                        rationale: issue.rationale || '',
-                        resources: this.getSecurityResources(issue.category),
-                        bestPractice: issue.bestPractice || '',
-                        level: this.determineSecurityComplexity(issue.category),
-                    },
-                });
-            }
-        }
-        catch (error) {
-            core.warning(`Failed to parse security analysis for ${filename}: ${error}`);
+        const text = response.text || '';
+        const parsedIssues = (0, utils_1.parseAgentResponse)(text, filename, 'security');
+        for (const issue of parsedIssues) {
+            issues.push({
+                severity: issue.severity || 'warning',
+                category: issue.category ? `security-${issue.category}` : 'security-general',
+                title: `🔒 ${issue.title}`,
+                description: this.formatSecurityDescription(issue),
+                file: filename,
+                line: issue.line,
+                endLine: issue.endLine,
+                snippet: issue.snippet,
+                suggestion: typeof issue.suggestion === 'string' ? { comment: issue.suggestion } : issue.suggestion,
+                coaching: {
+                    rationale: issue.rationale || '',
+                    resources: this.getSecurityResources(issue.category),
+                    bestPractice: issue.bestPractice || '',
+                    level: this.determineSecurityComplexity(issue.category),
+                },
+            });
         }
         return issues;
     }
@@ -35763,6 +35807,7 @@ exports.TestingAgent = void 0;
 const core = __importStar(__nccwpck_require__(7484));
 const sdk_1 = __importDefault(__nccwpck_require__(121));
 const prompts_1 = __nccwpck_require__(831);
+const utils_1 = __nccwpck_require__(8541);
 class TestingAgent {
     constructor(config) {
         this.config = config;
@@ -35822,48 +35867,47 @@ class TestingAgent {
         if (!file.patch || !file.content) {
             return [];
         }
+        const prompt = (0, prompts_1.buildTestingAnalysisPrompt)(file, context);
         try {
-            const prompt = (0, prompts_1.buildTestingAnalysisPrompt)(file, context);
             const response = await this.anthropic.messages.create({
                 model: this.model,
                 max_tokens: 2000,
                 messages: [{ role: 'user', content: prompt }],
             });
-            const content = response.content[0];
-            if (content.type !== 'text') {
-                core.warning('Unexpected response format from Testing Agent');
-                return [];
-            }
-            // Parse the response
-            let parsed;
-            try {
-                parsed = JSON.parse(content.text);
-            }
-            catch (parseError) {
-                core.warning(`Failed to parse Testing Agent response: ${parseError}`);
-                return [];
-            }
-            // Validate and transform issues
-            const issues = [];
-            if (Array.isArray(parsed.issues)) {
-                for (const issue of parsed.issues) {
-                    if (issue.severity && issue.category && issue.title && issue.description) {
-                        issues.push({
-                            ...issue,
-                            file: file.filename,
-                            suggestion: typeof issue.suggestion === 'string'
-                                ? { comment: issue.suggestion }
-                                : issue.suggestion,
-                        });
-                    }
-                }
-            }
-            return issues;
+            return this.parseTestingIssues(response.content[0], file.filename);
         }
         catch (error) {
-            core.warning(`Testing Agent analysis failed for ${file.filename}: ${error}`);
+            core.warning(`Failed to analyze ${file.filename} for testing: ${error}`);
             return [];
         }
+    }
+    /**
+     * Parse Claude's response into testing issues
+     */
+    parseTestingIssues(response, filename) {
+        const issues = [];
+        const text = response.text || '';
+        const parsedIssues = (0, utils_1.parseAgentResponse)(text, filename, 'testing');
+        for (const issue of parsedIssues) {
+            issues.push({
+                severity: issue.severity || 'warning',
+                category: issue.category ? `testing-${issue.category}` : 'testing-general',
+                title: `🧪 ${issue.title}`,
+                description: this.formatTestingDescription(issue),
+                file: filename,
+                line: issue.line,
+                endLine: issue.endLine,
+                snippet: issue.snippet,
+                suggestion: typeof issue.suggestion === 'string' ? { comment: issue.suggestion } : issue.suggestion,
+                coaching: {
+                    rationale: issue.rationale || '',
+                    resources: this.getTestingResources(issue.category),
+                    bestPractice: issue.bestPractice || '',
+                    level: this.determineTestingComplexity(issue.category),
+                },
+            });
+        }
+        return issues;
     }
     /**
      * Check if file is a test file
@@ -35890,13 +35934,71 @@ class TestingAgent {
         return 0.6; // Placeholder confidence
     }
     /**
+     * Format testing issue description with additional context
+     */
+    formatTestingDescription(issue) {
+        let description = issue.description;
+        if (issue.testType) {
+            description += `\n\n**Test Type**: ${issue.testType}`;
+        }
+        if (issue.coverage) {
+            description += `\n\n**Coverage Impact**: ${issue.coverage}`;
+        }
+        return description;
+    }
+    /**
+     * Get testing learning resources based on category
+     */
+    getTestingResources(category) {
+        const resourceMap = {
+            'test-coverage': ['Testing Strategies', 'Code Coverage Best Practices'],
+            'test-quality': ['Effective Unit Testing', 'Test-Driven Development'],
+            'missing-tests': ['Testing Pyramid', 'Test Strategy Guide'],
+            'test-maintainability': ['Maintainable Test Code', 'Test Refactoring'],
+            'integration-testing': ['Integration Testing Patterns', 'API Testing Guide'],
+            'performance-testing': ['Performance Testing Best Practices', 'Load Testing Guide'],
+        };
+        return resourceMap[category] || ['Testing Best Practices', 'Software Testing Guide'];
+    }
+    /**
+     * Determine complexity level for testing coaching
+     */
+    determineTestingComplexity(category) {
+        const advancedCategories = ['integration-testing', 'performance-testing'];
+        const intermediateCategories = ['test-maintainability', 'test-quality'];
+        if (advancedCategories.includes(category)) {
+            return 'advanced';
+        }
+        else if (intermediateCategories.includes(category)) {
+            return 'intermediate';
+        }
+        else {
+            return 'beginner';
+        }
+    }
+    /**
      * Generate summary of testing analysis
      */
     generateSummary(issues, _context) {
         if (issues.length === 0) {
             return 'Test coverage and quality appear adequate for the changes made.';
         }
-        return `Found ${issues.length} testing-related issue(s) that could improve code reliability.`;
+        const criticalCount = issues.filter(i => i.severity === 'critical').length;
+        const errorCount = issues.filter(i => i.severity === 'error').length;
+        const warningCount = issues.filter(i => i.severity === 'warning').length;
+        let summary = `Found ${issues.length} testing issue(s): `;
+        const severityParts = [];
+        if (criticalCount > 0)
+            severityParts.push(`${criticalCount} critical`);
+        if (errorCount > 0)
+            severityParts.push(`${errorCount} high`);
+        if (warningCount > 0)
+            severityParts.push(`${warningCount} medium`);
+        summary += severityParts.join(', ');
+        if (criticalCount > 0) {
+            summary += '. 🧪 Critical testing gaps may compromise code reliability.';
+        }
+        return summary;
     }
 }
 exports.TestingAgent = TestingAgent;
@@ -38003,29 +38105,31 @@ Analyze the code changes for architectural quality including:
 5. **Extensibility**: Future-proof design decisions
 
 ## Response Format
-Return a JSON array of architectural issues:
+IMPORTANT: Return ONLY a valid JSON object with an "issues" array. Do NOT include markdown code blocks, backticks, or any other formatting.
 
-\`\`\`json
-[
-  {
-    "severity": "error|warning|info",
-    "category": "solid-principles|design-patterns|code-organization|separation-concerns|dependencies|abstraction",
-    "title": "Specific architectural issue",
-    "description": "Detailed explanation of the architectural problem and its impact",
-    "line": 45,
-    "endLine": 60,
-    "snippet": "relevant code snippet",
-    "suggestion": {
-      "comment": "Explanation of architectural improvement needed",
-      "diff": "// Optional: Show refactored code structure\\ninterface UserService {\\n  findUser(id: string): Promise<User>\\n}"
-    },
-    "rationale": "Why this violates architectural principles",
-    "principle": "Single Responsibility Principle",
-    "impact": "maintainability|scalability|testability|readability",
-    "bestPractice": "Recommended architectural approach"
-  }
-]
-\`\`\`
+Your response must be a valid JSON object in this exact format:
+
+{
+  "issues": [
+    {
+      "severity": "error|warning|info",
+      "category": "solid-principles|design-patterns|code-organization|separation-concerns|dependencies|abstraction",
+      "title": "Specific architectural issue",
+      "description": "Detailed explanation of the architectural problem and its impact",
+      "line": 45,
+      "endLine": 60,
+      "snippet": "relevant code snippet",
+      "suggestion": {
+        "comment": "Explanation of architectural improvement needed",
+        "diff": "Optional: Show refactored code structure"
+      },
+      "rationale": "Why this violates architectural principles",
+      "principle": "Single Responsibility Principle",
+      "impact": "maintainability|scalability|testability|readability",
+      "bestPractice": "Recommended architectural approach"
+    }
+  ]
+}
 
 ### Suggestion Guidelines
 - **Include diff** for concrete refactoring examples
@@ -38132,29 +38236,31 @@ Perform deep logical analysis of the code changes focusing on:
 5. **Race Conditions**: Concurrency and timing issues
 
 ## Response Format
-Return a JSON array of logic issues:
+IMPORTANT: Return ONLY a valid JSON object with an "issues" array. Do NOT include markdown code blocks, backticks, or any other formatting.
 
-\`\`\`json
-[
-  {
-    "severity": "critical|error|warning|info",
-    "category": "correctness|edge-cases|error-handling|control-flow|data-flow|algorithm|business-logic|concurrency",
-    "title": "Specific logic issue identified",
-    "description": "Detailed explanation of the logical problem and its consequences",
-    "line": 67,
-    "endLine": 72,
-    "snippet": "problematic code snippet",
-    "suggestion": {
-      "comment": "Explanation of how to fix the logical issue",
-      "diff": "// Show corrected logic\\nif (users && users.length > 0) {\\n  return users.filter(u => u.isActive)\\n}\\nreturn []"
-    },
-    "rationale": "Why this is a logic problem",
-    "edge_case": "Specific scenario that would fail",
-    "test_case": "Input that would expose the bug",
-    "complexity": "O(n) vs O(n²) analysis if relevant"
-  }
-]
-\`\`\`
+Your response must be a valid JSON object in this exact format:
+
+{
+  "issues": [
+    {
+      "severity": "critical|error|warning|info",
+      "category": "correctness|edge-cases|error-handling|control-flow|data-flow|algorithm|business-logic|concurrency",
+      "title": "Specific logic issue identified",
+      "description": "Detailed explanation of the logical problem and its consequences",
+      "line": 67,
+      "endLine": 72,
+      "snippet": "problematic code snippet",
+      "suggestion": {
+        "comment": "Explanation of how to fix the logical issue",
+        "diff": "Show corrected logic with proper escaping"
+      },
+      "rationale": "Why this is a logic problem",
+      "edge_case": "Specific scenario that would fail",
+      "test_case": "Input that would expose the bug",
+      "complexity": "O(n) vs O(n²) analysis if relevant"
+    }
+  ]
+}
 
 ### Suggestion Guidelines
 - **Include diff** when showing corrected logic or bug fixes
@@ -38243,30 +38349,32 @@ Analyze the code changes for performance impacts including:
 5. **Cost Analysis**: Infrastructure/runtime costs
 
 ## Response Format
-Return a JSON array of performance issues:
+IMPORTANT: Return ONLY a valid JSON object with an "issues" array. Do NOT include markdown code blocks, backticks, or any other formatting.
 
-\`\`\`json
-[
-  {
-    "severity": "error|warning|info",
-    "category": "algorithm|memory|io|caching|data-structures|rendering|bundle-size|database",
-    "title": "Specific performance issue",
-    "description": "Detailed explanation of the performance problem and its impact",
-    "line": 23,
-    "endLine": 28,
-    "snippet": "inefficient code snippet",
-    "suggestion": {
-      "comment": "Explanation of optimization strategy",
-      "diff": "// Optimized version\\nconst userMap = new Map(users.map(u => [u.id, u]))\\nconst result = ids.map(id => userMap.get(id))"
-    },
-    "rationale": "Why this impacts performance",
-    "complexity_current": "O(n²)",
-    "complexity_optimized": "O(n)",
-    "impact": "high|medium|low",
-    "measurement": "Specific metrics that would improve"
-  }
-]
-\`\`\`
+Your response must be a valid JSON object in this exact format:
+
+{
+  "issues": [
+    {
+      "severity": "error|warning|info",
+      "category": "algorithm|memory|io|caching|data-structures|rendering|bundle-size|database",
+      "title": "Specific performance issue",
+      "description": "Detailed explanation of the performance problem and its impact",
+      "line": 23,
+      "endLine": 28,
+      "snippet": "inefficient code snippet",
+      "suggestion": {
+        "comment": "Explanation of optimization strategy",
+        "diff": "Optimized version with proper escaping"
+      },
+      "rationale": "Why this impacts performance",
+      "complexity_current": "O(n²)",
+      "complexity_optimized": "O(n)",
+      "impact": "high|medium|low",
+      "measurement": "Specific metrics that would improve"
+    }
+  ]
+}
 
 ### Suggestion Guidelines
 - **Include diff** for concrete optimization code
@@ -38352,29 +38460,31 @@ Analyze the code changes for security vulnerabilities including:
 4. **Be practical**: Avoid false positives, focus on real risks
 
 ## Response Format
-Return a JSON array of security issues. For each issue, provide:
+IMPORTANT: Return ONLY a valid JSON object with an "issues" array. Do NOT include markdown code blocks, backticks, or any other formatting.
 
-\`\`\`json
-[
-  {
-    "severity": "critical|error|warning|info",
-    "category": "input-validation|authentication|authorization|data-protection|api-security|dependencies|crypto|configuration",
-    "title": "Brief, actionable title",
-    "description": "Detailed explanation of the vulnerability and its impact",
-    "line": 123,
-    "endLine": 125,
-    "snippet": "relevant code snippet",
-    "suggestion": {
-      "comment": "Clear explanation of what needs to be fixed and why",
-      "diff": "// Optional: Provide actual code fix if possible\\nconst sanitized = escapeHtml(userInput)"
-    },
-    "rationale": "Why this is a security risk",
-    "cwe": "CWE-79",
-    "attack_vector": "How this could be exploited",
-    "remediation_priority": "immediate|high|medium|low"
-  }
-]
-\`\`\`
+Your response must be a valid JSON object in this exact format:
+
+{
+  "issues": [
+    {
+      "severity": "critical|error|warning|info",
+      "category": "input-validation|authentication|authorization|data-protection|api-security|dependencies|crypto|configuration",
+      "title": "Brief, actionable title",
+      "description": "Detailed explanation of the vulnerability and its impact",
+      "line": 123,
+      "endLine": 125,
+      "snippet": "relevant code snippet",
+      "suggestion": {
+        "comment": "Clear explanation of what needs to be fixed and why",
+        "diff": "Optional: Provide actual code fix if possible"
+      },
+      "rationale": "Why this is a security risk",
+      "cwe": "CWE-79",
+      "attack_vector": "How this could be exploited",
+      "remediation_priority": "immediate|high|medium|low"
+    }
+  ]
+}
 
 ### Suggestion Guidelines
 - **Include diff** when you can provide specific code fixes
@@ -38449,29 +38559,31 @@ Analyze the code changes for testing quality and coverage including:
 5. **Dependencies**: External service integration testing
 
 ## Response Format
-Return a JSON array of testing issues:
+IMPORTANT: Return ONLY a valid JSON object with an "issues" array. Do NOT include markdown code blocks, backticks, or any other formatting.
 
-\`\`\`json
-[
-  {
-    "severity": "warning|info",
-    "category": "coverage|quality|edge-cases|structure|mocking|integration|performance",
-    "title": "Specific testing issue or opportunity",
-    "description": "Detailed explanation of the testing gap or improvement",
-    "line": 45,
-    "endLine": 50,
-    "snippet": "code that needs testing",
-    "suggestion": {
-      "comment": "Testing strategy and approach explanation",
-      "diff": "// Example test implementation\\ndescribe('UserService', () => {\\n  it('should handle invalid user ID gracefully', async () => {\\n    await expect(userService.findUser('')).rejects.toThrow('Invalid ID')\\n  })\\n})"
-    },
-    "rationale": "Why this testing is important",
-    "test_type": "unit|integration|e2e|performance",
-    "priority": "high|medium|low",
-    "coverage_impact": "What this would improve in test coverage"
-  }
-]
-\`\`\`
+Your response must be a valid JSON object in this exact format:
+
+{
+  "issues": [
+    {
+      "severity": "warning|info",
+      "category": "coverage|quality|edge-cases|structure|mocking|integration|performance",
+      "title": "Specific testing issue or opportunity",
+      "description": "Detailed explanation of the testing gap or improvement",
+      "line": 45,
+      "endLine": 50,
+      "snippet": "code that needs testing",
+      "suggestion": {
+        "comment": "Testing strategy and approach explanation",
+        "diff": "Example test implementation with proper escaping"
+      },
+      "rationale": "Why this testing is important",
+      "test_type": "unit|integration|e2e|performance",
+      "priority": "high|medium|low",
+      "coverage_impact": "What this would improve in test coverage"
+    }
+  ]
+}
 
 ### Suggestion Guidelines
 - **Include diff** for specific test implementation examples
@@ -39256,6 +39368,107 @@ function getFileExtension(filename) {
         svelte: 'svelte',
     };
     return langMap[ext || ''] || ext || 'text';
+}
+
+
+/***/ }),
+
+/***/ 8541:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+/**
+ * Utility functions
+ */
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.parseAgentResponse = exports.getFileExtension = void 0;
+var fileExtensions_1 = __nccwpck_require__(5589);
+Object.defineProperty(exports, "getFileExtension", ({ enumerable: true, get: function () { return fileExtensions_1.getFileExtension; } }));
+var jsonParser_1 = __nccwpck_require__(2556);
+Object.defineProperty(exports, "parseAgentResponse", ({ enumerable: true, get: function () { return jsonParser_1.parseAgentResponse; } }));
+
+
+/***/ }),
+
+/***/ 2556:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+/**
+ * JSON parsing utilities for AI agent responses
+ */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.parseAgentResponse = parseAgentResponse;
+const core = __importStar(__nccwpck_require__(7484));
+/**
+ * Robustly parse JSON from AI agent responses
+ * Handles various formats including markdown code blocks and partial JSON
+ */
+function parseAgentResponse(text, filename, agentType) {
+    try {
+        // First try to parse the entire response as JSON
+        let parsedResponse;
+        try {
+            parsedResponse = JSON.parse(text);
+        }
+        catch {
+            // If that fails, try to extract JSON from markdown blocks or partial content
+            const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) ||
+                text.match(/\{[\s\S]*\}/) ||
+                text.match(/\[[\s\S]*\]/);
+            if (!jsonMatch) {
+                core.debug(`No ${agentType} issues found in ${filename} - no valid JSON`);
+                return [];
+            }
+            parsedResponse = JSON.parse(jsonMatch[jsonMatch.length - 1]);
+        }
+        // Handle both old format (array) and new format (object with issues property)
+        const issues = Array.isArray(parsedResponse) ? parsedResponse : parsedResponse.issues || [];
+        if (!Array.isArray(issues)) {
+            core.warning(`Invalid ${agentType} response format for ${filename} - expected array`);
+            return [];
+        }
+        return issues;
+    }
+    catch (error) {
+        core.warning(`Failed to parse ${agentType} analysis for ${filename}: ${error}`);
+        return [];
+    }
 }
 
 
