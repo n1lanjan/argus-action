@@ -1,6 +1,6 @@
 /**
  * Architecture Agent
- * 
+ *
  * Specialized AI agent focused on software architecture and design patterns.
  * This agent analyzes code changes for:
  * - Design pattern violations
@@ -13,7 +13,14 @@
 
 import * as core from '@actions/core'
 import Anthropic from '@anthropic-ai/sdk'
-import { ReviewAgent, ReviewContext, AgentResult, AgentType, ReviewIssue, ReviewConfiguration } from '../types'
+import {
+  ReviewAgent,
+  ReviewContext,
+  AgentResult,
+  AgentType,
+  ReviewIssue,
+  ReviewConfiguration,
+} from '../types'
 
 export class ArchitectureAgent implements ReviewAgent {
   name: AgentType = 'architecture'
@@ -23,7 +30,7 @@ export class ArchitectureAgent implements ReviewAgent {
     'Code organization review',
     'Dependency analysis',
     'Modularity assessment',
-    'Coupling and cohesion analysis'
+    'Coupling and cohesion analysis',
   ]
   priority = 2
 
@@ -49,7 +56,7 @@ export class ArchitectureAgent implements ReviewAgent {
 
     try {
       const issues: ReviewIssue[] = []
-      
+
       // Analyze each changed file for architecture issues
       for (const file of context.changedFiles) {
         if (this.shouldAnalyzeFile(file.filename)) {
@@ -64,18 +71,17 @@ export class ArchitectureAgent implements ReviewAgent {
 
       // Generate overall summary
       const summary = this.generateSummary(issues, context)
-      
+
       const result: AgentResult = {
         agent: 'architecture',
         confidence: this.calculateConfidence(issues, context),
         issues,
         summary,
-        executionTime: Date.now() - startTime
+        executionTime: Date.now() - startTime,
       }
 
       core.info(`🏗️ Architecture Agent: Found ${issues.length} architecture issues`)
       return result
-
     } catch (error) {
       core.error(`Architecture Agent failed: ${error}`)
       throw error
@@ -91,20 +97,21 @@ export class ArchitectureAgent implements ReviewAgent {
     }
 
     const prompt = this.buildArchitectureAnalysisPrompt(file, context)
-    
+
     try {
       const response = await this.anthropic.messages.create({
         model: this.model,
         max_tokens: this.config.models.parameters.maxTokens,
         temperature: this.config.models.parameters.temperature,
-        messages: [{
-          role: 'user',
-          content: prompt
-        }]
+        messages: [
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
       })
 
       return this.parseArchitectureIssues(response.content[0] as any, file.filename)
-
     } catch (error) {
       core.warning(`Failed to analyze ${file.filename} for architecture: ${error}`)
       return []
@@ -211,22 +218,22 @@ If no significant architectural issues are found, respond with: []`
    */
   private parseArchitectureIssues(response: any, filename: string): ReviewIssue[] {
     const issues: ReviewIssue[] = []
-    
+
     try {
       const text = response.text || ''
       const jsonMatch = text.match(/\[[\s\S]*\]/)
-      
+
       if (!jsonMatch) {
         core.debug(`No architecture issues found in ${filename}`)
         return issues
       }
 
       const parsedIssues = JSON.parse(jsonMatch[0])
-      
+
       for (const issue of parsedIssues) {
         issues.push({
           severity: issue.severity || 'warning',
-          category: `architecture-${issue.category}` || 'architecture-general',
+          category: issue.category ? `architecture-${issue.category}` : 'architecture-general',
           title: `🏗️ ${issue.title}`,
           description: this.formatArchitectureDescription(issue),
           file: filename,
@@ -238,11 +245,10 @@ If no significant architectural issues are found, respond with: []`
             rationale: issue.rationale || '',
             resources: this.getArchitectureResources(issue.category),
             bestPractice: issue.bestPractice || '',
-            level: this.determineArchitectureComplexity(issue.category)
-          }
+            level: this.determineArchitectureComplexity(issue.category),
+          },
         })
       }
-
     } catch (error) {
       core.warning(`Failed to parse architecture analysis for ${filename}: ${error}`)
     }
@@ -255,10 +261,10 @@ If no significant architectural issues are found, respond with: []`
    */
   private async analyzeStructuralChanges(context: ReviewContext): Promise<ReviewIssue[]> {
     const issues: ReviewIssue[] = []
-    
+
     // Check for new modules or significant structural changes
     const newFiles = context.changedFiles.filter(f => f.status === 'added')
-    const deletedFiles = context.changedFiles.filter(f => f.status === 'deleted')
+    // const deletedFiles = context.changedFiles.filter(f => f.status === 'deleted')
     const renamedFiles = context.changedFiles.filter(f => f.status === 'renamed')
 
     // Analyze new module creation
@@ -285,7 +291,7 @@ If no significant architectural issues are found, respond with: []`
    */
   private analyzeNewModules(newFiles: any[], context: ReviewContext): ReviewIssue[] {
     const issues: ReviewIssue[] = []
-    
+
     for (const file of newFiles) {
       // Check if new file follows project structure conventions
       const expectedLocation = this.getExpectedLocation(file.filename, context)
@@ -298,24 +304,25 @@ If no significant architectural issues are found, respond with: []`
           file: file.filename,
           suggestion: `Consider moving to ${expectedLocation} to maintain consistency`,
           coaching: {
-            rationale: 'Consistent file organization improves maintainability and developer experience',
+            rationale:
+              'Consistent file organization improves maintainability and developer experience',
             resources: ['Clean Architecture', 'Project Structure Best Practices'],
             bestPractice: 'Group related files by feature or layer, not by file type',
-            level: 'intermediate'
-          }
+            level: 'intermediate',
+          },
         })
       }
     }
-    
+
     return issues
   }
 
   /**
    * Analyze file renames for architectural impact
    */
-  private analyzeFileRenames(renamedFiles: any[], context: ReviewContext): ReviewIssue[] {
+  private analyzeFileRenames(renamedFiles: any[], _context: ReviewContext): ReviewIssue[] {
     const issues: ReviewIssue[] = []
-    
+
     for (const file of renamedFiles) {
       // Check if rename breaks existing patterns
       if (file.previousFilename && this.breaksNamingPattern(file.previousFilename, file.filename)) {
@@ -329,13 +336,13 @@ If no significant architectural issues are found, respond with: []`
           coaching: {
             rationale: 'Consistent naming patterns help developers navigate the codebase',
             resources: ['Naming Conventions Guide'],
-            bestPractice: 'Use descriptive names that clearly indicate the file\'s purpose',
-            level: 'beginner'
-          }
+            bestPractice: "Use descriptive names that clearly indicate the file's purpose",
+            level: 'beginner',
+          },
         })
       }
     }
-    
+
     return issues
   }
 
@@ -344,7 +351,7 @@ If no significant architectural issues are found, respond with: []`
    */
   private checkCircularDependencies(context: ReviewContext): ReviewIssue[] {
     const issues: ReviewIssue[] = []
-    
+
     // This is a simplified check - in a full implementation,
     // you'd analyze import statements and build a dependency graph
     for (const file of context.changedFiles) {
@@ -357,15 +364,17 @@ If no significant architectural issues are found, respond with: []`
           file: file.filename,
           suggestion: 'Consider using dependency injection or extracting shared interfaces',
           coaching: {
-            rationale: 'Circular dependencies make code harder to test and can cause runtime issues',
+            rationale:
+              'Circular dependencies make code harder to test and can cause runtime issues',
             resources: ['Dependency Inversion Principle', 'Clean Architecture'],
-            bestPractice: 'Design dependencies to flow in one direction, typically from UI to business logic to data',
-            level: 'advanced'
-          }
+            bestPractice:
+              'Design dependencies to flow in one direction, typically from UI to business logic to data',
+            level: 'advanced',
+          },
         })
       }
     }
-    
+
     return issues
   }
 
@@ -374,15 +383,29 @@ If no significant architectural issues are found, respond with: []`
    */
   private shouldAnalyzeFile(filename: string): boolean {
     // Focus on source code files
-    const codeExtensions = ['.js', '.ts', '.jsx', '.tsx', '.py', '.java', '.cs', '.rb', '.go', '.php']
+    const codeExtensions = [
+      '.js',
+      '.ts',
+      '.jsx',
+      '.tsx',
+      '.py',
+      '.java',
+      '.cs',
+      '.rb',
+      '.go',
+      '.php',
+    ]
     const isCodeFile = codeExtensions.some(ext => filename.endsWith(ext))
-    
+
     // Skip test files for architecture analysis
     const isTestFile = /\.(test|spec)\.[jt]sx?$/.test(filename) || filename.includes('__tests__')
-    
+
     // Skip generated or build files
-    const isGenerated = filename.includes('.generated.') || filename.includes('.min.') || filename.includes('.bundle.')
-    
+    const isGenerated =
+      filename.includes('.generated.') ||
+      filename.includes('.min.') ||
+      filename.includes('.bundle.')
+
     return isCodeFile && !isTestFile && !isGenerated
   }
 
@@ -398,10 +421,10 @@ If no significant architectural issues are found, respond with: []`
     }
 
     // Higher confidence for files that are more architecturally significant
-    const architecturalFiles = context.changedFiles.filter(f => 
+    const architecturalFiles = context.changedFiles.filter(f =>
       /\/(components|services|models|controllers|middleware)\//i.test(f.filename)
     )
-    
+
     if (architecturalFiles.length > 0) {
       baseConfidence += 0.1
     }
@@ -412,21 +435,25 @@ If no significant architectural issues are found, respond with: []`
   /**
    * Generate summary of architecture analysis
    */
-  private generateSummary(issues: ReviewIssue[], context: ReviewContext): string {
+  private generateSummary(issues: ReviewIssue[], _context: ReviewContext): string {
     if (issues.length === 0) {
       return 'No significant architectural issues detected in the code changes.'
     }
 
-    const categoryBreakdown = issues.reduce((acc, issue) => {
-      const category = issue.category.replace('architecture-', '')
-      acc[category] = (acc[category] || 0) + 1
-      return acc
-    }, {} as Record<string, number>)
+    const categoryBreakdown = issues.reduce(
+      (acc, issue) => {
+        const category = issue.category.replace('architecture-', '')
+        acc[category] = (acc[category] || 0) + 1
+        return acc
+      },
+      {} as Record<string, number>
+    )
 
     let summary = `Found ${issues.length} architectural issue(s): `
-    
-    const categoryParts = Object.entries(categoryBreakdown)
-      .map(([category, count]) => `${count} ${category}`)
+
+    const categoryParts = Object.entries(categoryBreakdown).map(
+      ([category, count]) => `${count} ${category}`
+    )
     summary += categoryParts.join(', ')
 
     // Highlight critical architectural issues
@@ -441,9 +468,7 @@ If no significant architectural issues are found, respond with: []`
   /**
    * Helper methods for architectural analysis
    */
-  private getExpectedLocation(filename: string, context: ReviewContext): string | null {
-    const { architecture } = context.projectContext
-    
+  private getExpectedLocation(filename: string, _context: ReviewContext): string | null {
     // Simple heuristics for expected locations
     if (filename.includes('component') || filename.includes('Component')) {
       return 'src/components/'
@@ -457,7 +482,7 @@ If no significant architectural issues are found, respond with: []`
     if (filename.includes('controller') || filename.includes('Controller')) {
       return 'src/controllers/'
     }
-    
+
     return null
   }
 
@@ -483,7 +508,7 @@ If no significant architectural issues are found, respond with: []`
     // In practice, you'd want a more sophisticated dependency graph analysis
     const imports = content.match(/import.*from\s+['"]([^'"]+)['"]/g) || []
     const relativePath = filename.replace(/\/[^/]+$/, '')
-    
+
     return imports.some(imp => {
       const importPath = imp.match(/from\s+['"]([^'"]+)['"]/)?.[1]
       return importPath && importPath.includes(relativePath)
@@ -503,19 +528,24 @@ If no significant architectural issues are found, respond with: []`
   private getArchitectureResources(category: string): string[] {
     const resourceMap: Record<string, string[]> = {
       'solid-violation': ['SOLID Principles Explained', 'Clean Code', 'Refactoring Guru'],
-      'design-pattern': ['Design Patterns: Elements of Reusable Object-Oriented Software', 'Refactoring Guru Patterns'],
+      'design-pattern': [
+        'Design Patterns: Elements of Reusable Object-Oriented Software',
+        'Refactoring Guru Patterns',
+      ],
       'code-organization': ['Clean Architecture', 'Hexagonal Architecture'],
       'dependency-management': ['Dependency Inversion Principle', 'Inversion of Control'],
-      'modularity': ['Module Design Principles', 'Component-Based Architecture']
+      modularity: ['Module Design Principles', 'Component-Based Architecture'],
     }
 
     return resourceMap[category] || ['Clean Code', 'Design Patterns', 'Software Architecture Guide']
   }
 
-  private determineArchitectureComplexity(category: string): 'beginner' | 'intermediate' | 'advanced' {
+  private determineArchitectureComplexity(
+    category: string
+  ): 'beginner' | 'intermediate' | 'advanced' {
     const advancedCategories = ['dependency-management', 'modularity']
     const intermediateCategories = ['solid-violation', 'design-pattern']
-    
+
     if (advancedCategories.includes(category)) {
       return 'advanced'
     } else if (intermediateCategories.includes(category)) {

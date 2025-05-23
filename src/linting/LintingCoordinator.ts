@@ -1,6 +1,6 @@
 /**
  * Linting Coordinator
- * 
+ *
  * Coordinates multiple static analysis tools and linters to provide
  * comprehensive code quality analysis. This component:
  * - Runs configured linters (ESLint, TypeScript, Prettier, etc.)
@@ -12,15 +12,13 @@
 import * as core from '@actions/core'
 import { exec } from 'child_process'
 import { promisify } from 'util'
-import * as fs from 'fs/promises'
-import * as path from 'path'
 import { LintResult, LintIssue, ReviewConfiguration } from '../types'
 
 const execAsync = promisify(exec)
 
 export class LintingCoordinator {
   private readonly workspaceRoot: string
-  
+
   constructor(private config: ReviewConfiguration) {
     this.workspaceRoot = process.cwd()
   }
@@ -30,7 +28,7 @@ export class LintingCoordinator {
    */
   async runAllLinters(files: string[]): Promise<LintResult> {
     core.info('🔧 Running static analysis tools...')
-    
+
     const linterResults: Record<string, LintIssue[]> = {}
     let totalIssues = 0
     let autoFixable = 0
@@ -43,7 +41,7 @@ export class LintingCoordinator {
         linterResults[linter] = issues
         totalIssues += issues.length
         autoFixable += issues.filter(issue => issue.fixable).length
-        
+
         core.info(`${linter}: Found ${issues.length} issues`)
       } catch (error) {
         core.warning(`Failed to run ${linter}: ${error}`)
@@ -53,7 +51,7 @@ export class LintingCoordinator {
 
     // Calculate severity breakdown
     const severityBreakdown = this.calculateSeverityBreakdown(linterResults)
-    
+
     // Generate summary
     const summary = this.generateLintingSummary(linterResults, totalIssues, autoFixable)
 
@@ -62,7 +60,7 @@ export class LintingCoordinator {
       severityBreakdown,
       byLinter: linterResults,
       summary,
-      autoFixable
+      autoFixable,
     }
   }
 
@@ -90,12 +88,12 @@ export class LintingCoordinator {
    */
   private async runESLint(files: string[]): Promise<LintIssue[]> {
     const issues: LintIssue[] = []
-    
+
     // Filter for JavaScript/TypeScript files
-    const jsFiles = files.filter(file => 
-      /\.(js|jsx|ts|tsx)$/.test(file) && !file.includes('node_modules')
+    const jsFiles = files.filter(
+      file => /\.(js|jsx|ts|tsx)$/.test(file) && !file.includes('node_modules')
     )
-    
+
     if (jsFiles.length === 0) {
       return issues
     }
@@ -103,18 +101,18 @@ export class LintingCoordinator {
     try {
       // Check if ESLint is available
       await this.checkToolAvailability('eslint', 'npx eslint --version')
-      
+
       // Run ESLint with JSON output
       const filesArg = jsFiles.join(' ')
       const command = `npx eslint ${filesArg} --format json --no-error-on-unmatched-pattern`
-      
-      const { stdout } = await execAsync(command, { 
+
+      const { stdout } = await execAsync(command, {
         cwd: this.workspaceRoot,
-        maxBuffer: 1024 * 1024 * 10 // 10MB buffer
+        maxBuffer: 1024 * 1024 * 10, // 10MB buffer
       })
 
       const eslintResults = JSON.parse(stdout || '[]')
-      
+
       for (const result of eslintResults) {
         for (const message of result.messages || []) {
           issues.push({
@@ -125,16 +123,16 @@ export class LintingCoordinator {
             severity: this.mapESLintSeverity(message.severity),
             message: message.message,
             ruleId: message.ruleId,
-            fixable: message.fix !== undefined
+            fixable: message.fix !== undefined,
           })
         }
       }
-
     } catch (error) {
       // ESLint exits with code 1 when it finds issues, so check stderr for real errors
       if (error instanceof Error && 'code' in error && error.code === 1) {
         try {
-          const eslintResults = JSON.parse((error as any).stdout || '[]')
+          const errorWithOutput = error as Error & { stdout?: string }
+          const eslintResults = JSON.parse(errorWithOutput.stdout || '[]')
           // Process results even if ESLint exited with code 1
           for (const result of eslintResults) {
             for (const message of result.messages || []) {
@@ -146,11 +144,11 @@ export class LintingCoordinator {
                 severity: this.mapESLintSeverity(message.severity),
                 message: message.message,
                 ruleId: message.ruleId,
-                fixable: message.fix !== undefined
+                fixable: message.fix !== undefined,
               })
             }
           }
-        } catch (parseError) {
+        } catch {
           core.debug(`ESLint error: ${error}`)
         }
       } else {
@@ -166,37 +164,43 @@ export class LintingCoordinator {
    */
   private async runTypeScript(files: string[]): Promise<LintIssue[]> {
     const issues: LintIssue[] = []
-    
+
     // Filter for TypeScript files
-    const tsFiles = files.filter(file => 
-      /\.tsx?$/.test(file) && !file.includes('node_modules')
-    )
-    
+    const tsFiles = files.filter(file => /\.tsx?$/.test(file) && !file.includes('node_modules'))
+
     if (tsFiles.length === 0) {
       return issues
     }
 
     try {
       await this.checkToolAvailability('typescript', 'npx tsc --version')
-      
+
       // Run TypeScript compiler with no emit, just type checking
       const command = 'npx tsc --noEmit --pretty false --incremental false'
-      
-      const { stderr } = await execAsync(command, { 
+
+      const { stderr } = await execAsync(command, {
         cwd: this.workspaceRoot,
-        maxBuffer: 1024 * 1024 * 10
+        maxBuffer: 1024 * 1024 * 10,
       })
 
       // Parse TypeScript compiler output
       const lines = stderr.split('\n').filter(line => line.trim())
-      
+
       for (const line of lines) {
         const match = line.match(/^(.+)\((\d+),(\d+)\):\s*(error|warning)\s*TS(\d+):\s*(.+)$/)
         if (match) {
           const [, filePath, lineStr, columnStr, severity, code, message] = match
-          
-          // Only include files we're analyzing
-          if (tsFiles.some(file => filePath.includes(file))) {
+
+          // Only include files we're analyzing and ensure all required values exist
+          if (
+            filePath &&
+            lineStr &&
+            columnStr &&
+            severity &&
+            code &&
+            message &&
+            tsFiles.some(file => filePath.includes(file))
+          ) {
             issues.push({
               linter: 'typescript',
               file: filePath,
@@ -205,23 +209,23 @@ export class LintingCoordinator {
               severity: severity as 'error' | 'warning',
               message: `TS${code}: ${message}`,
               ruleId: `TS${code}`,
-              fixable: false // TypeScript errors are rarely auto-fixable
+              fixable: false, // TypeScript errors are rarely auto-fixable
             })
           }
         }
       }
-
     } catch (error) {
       // TypeScript compiler exits with error code when there are type errors
       if (error instanceof Error && 'stderr' in error) {
-        const stderr = (error as any).stderr
+        const errorWithStderr = error as Error & { stderr?: string }
+        const stderr = errorWithStderr.stderr || ''
         const lines = stderr.split('\n').filter((line: string) => line.trim())
-        
+
         for (const line of lines) {
           const match = line.match(/^(.+)\((\d+),(\d+)\):\s*(error|warning)\s*TS(\d+):\s*(.+)$/)
           if (match) {
             const [, filePath, lineStr, columnStr, severity, code, message] = match
-            
+
             if (tsFiles.some(file => filePath.includes(file))) {
               issues.push({
                 linter: 'typescript',
@@ -231,7 +235,7 @@ export class LintingCoordinator {
                 severity: severity as 'error' | 'warning',
                 message: `TS${code}: ${message}`,
                 ruleId: `TS${code}`,
-                fixable: false
+                fixable: false,
               })
             }
           }
@@ -247,26 +251,26 @@ export class LintingCoordinator {
    */
   private async runPrettier(files: string[]): Promise<LintIssue[]> {
     const issues: LintIssue[] = []
-    
+
     // Filter for files that Prettier can handle
-    const prettierFiles = files.filter(file => 
-      /\.(js|jsx|ts|tsx|json|css|scss|md|yml|yaml)$/.test(file) && 
-      !file.includes('node_modules')
+    const prettierFiles = files.filter(
+      file =>
+        /\.(js|jsx|ts|tsx|json|css|scss|md|yml|yaml)$/.test(file) && !file.includes('node_modules')
     )
-    
+
     if (prettierFiles.length === 0) {
       return issues
     }
 
     try {
       await this.checkToolAvailability('prettier', 'npx prettier --version')
-      
+
       // Check each file for formatting issues
       for (const file of prettierFiles) {
         try {
           const command = `npx prettier --check "${file}"`
           await execAsync(command, { cwd: this.workspaceRoot })
-        } catch (error) {
+        } catch {
           // Prettier exits with code 1 when files are not formatted
           issues.push({
             linter: 'prettier',
@@ -276,11 +280,10 @@ export class LintingCoordinator {
             severity: 'info',
             message: 'File is not formatted according to Prettier rules',
             ruleId: 'prettier/formatting',
-            fixable: true
+            fixable: true,
           })
         }
       }
-
     } catch (error) {
       core.debug(`Prettier execution failed: ${error}`)
     }
@@ -293,29 +296,29 @@ export class LintingCoordinator {
    */
   private async runSonarJS(files: string[]): Promise<LintIssue[]> {
     const issues: LintIssue[] = []
-    
+
     try {
       // Check if SonarJS ESLint plugin is available
       await this.checkToolAvailability('sonar', 'npx eslint --print-config . | grep sonarjs')
-      
-      const jsFiles = files.filter(file => 
-        /\.(js|jsx|ts|tsx)$/.test(file) && !file.includes('node_modules')
+
+      const jsFiles = files.filter(
+        file => /\.(js|jsx|ts|tsx)$/.test(file) && !file.includes('node_modules')
       )
-      
+
       if (jsFiles.length === 0) {
         return issues
       }
 
       const filesArg = jsFiles.join(' ')
       const command = `npx eslint ${filesArg} --format json --no-eslintrc --config '{"extends": ["plugin:sonarjs/recommended"]}' --no-error-on-unmatched-pattern`
-      
-      const { stdout } = await execAsync(command, { 
+
+      const { stdout } = await execAsync(command, {
         cwd: this.workspaceRoot,
-        maxBuffer: 1024 * 1024 * 5
+        maxBuffer: 1024 * 1024 * 5,
       })
 
       const sonarResults = JSON.parse(stdout || '[]')
-      
+
       for (const result of sonarResults) {
         for (const message of result.messages || []) {
           if (message.ruleId && message.ruleId.startsWith('sonarjs/')) {
@@ -327,12 +330,11 @@ export class LintingCoordinator {
               severity: this.mapESLintSeverity(message.severity),
               message: message.message,
               ruleId: message.ruleId,
-              fixable: false // SonarJS rules are typically not auto-fixable
+              fixable: false, // SonarJS rules are typically not auto-fixable
             })
           }
         }
       }
-
     } catch (error) {
       core.debug(`SonarJS not available or failed: ${error}`)
     }
@@ -346,7 +348,7 @@ export class LintingCoordinator {
   private async checkToolAvailability(tool: string, command: string): Promise<void> {
     try {
       await execAsync(command, { cwd: this.workspaceRoot })
-    } catch (error) {
+    } catch {
       throw new Error(`${tool} is not available or not properly configured`)
     }
   }
@@ -356,24 +358,29 @@ export class LintingCoordinator {
    */
   private mapESLintSeverity(severity: number): 'error' | 'warning' | 'info' {
     switch (severity) {
-      case 2: return 'error'
-      case 1: return 'warning'
-      default: return 'info'
+      case 2:
+        return 'error'
+      case 1:
+        return 'warning'
+      default:
+        return 'info'
     }
   }
 
   /**
    * Calculate severity breakdown across all linters
    */
-  private calculateSeverityBreakdown(linterResults: Record<string, LintIssue[]>): Record<string, number> {
+  private calculateSeverityBreakdown(
+    linterResults: Record<string, LintIssue[]>
+  ): Record<string, number> {
     const breakdown: Record<string, number> = { error: 0, warning: 0, info: 0 }
-    
+
     for (const issues of Object.values(linterResults)) {
       for (const issue of issues) {
         breakdown[issue.severity] = (breakdown[issue.severity] || 0) + 1
       }
     }
-    
+
     return breakdown
   }
 
@@ -381,8 +388,8 @@ export class LintingCoordinator {
    * Generate a comprehensive summary of linting results
    */
   private generateLintingSummary(
-    linterResults: Record<string, LintIssue[]>, 
-    totalIssues: number, 
+    linterResults: Record<string, LintIssue[]>,
+    totalIssues: number,
     autoFixable: number
   ): string {
     if (totalIssues === 0) {
@@ -390,11 +397,11 @@ export class LintingCoordinator {
     }
 
     let summary = `Found ${totalIssues} linting issue(s)`
-    
+
     if (autoFixable > 0) {
       summary += ` (${autoFixable} auto-fixable)`
     }
-    
+
     summary += ':\n\n'
 
     // Break down by linter
@@ -403,18 +410,18 @@ export class LintingCoordinator {
         const errorCount = issues.filter(i => i.severity === 'error').length
         const warningCount = issues.filter(i => i.severity === 'warning').length
         const infoCount = issues.filter(i => i.severity === 'info').length
-        
+
         summary += `**${linter.toUpperCase()}**: ${issues.length} issues`
-        
+
         const severityParts = []
         if (errorCount > 0) severityParts.push(`${errorCount} errors`)
         if (warningCount > 0) severityParts.push(`${warningCount} warnings`)
         if (infoCount > 0) severityParts.push(`${infoCount} info`)
-        
+
         if (severityParts.length > 0) {
           summary += ` (${severityParts.join(', ')})`
         }
-        
+
         summary += '\n'
 
         // Show most common issues for this linter
@@ -422,7 +429,7 @@ export class LintingCoordinator {
         for (const [ruleId, count] of commonIssues) {
           summary += `  - ${ruleId}: ${count} occurrence(s)\n`
         }
-        
+
         summary += '\n'
       }
     }
@@ -430,12 +437,12 @@ export class LintingCoordinator {
     // Add fix suggestions
     if (autoFixable > 0) {
       summary += `💡 **Quick Fix**: Run the following commands to auto-fix ${autoFixable} issues:\n`
-      
+
       if (linterResults.eslint?.some(i => i.fixable)) {
         summary += '```bash\nnpx eslint --fix .\n```\n'
       }
-      
-      if (linterResults.prettier?.length > 0) {
+
+      if (linterResults.prettier && linterResults.prettier.length > 0) {
         summary += '```bash\nnpx prettier --write .\n```\n'
       }
     }
@@ -457,15 +464,15 @@ export class LintingCoordinator {
    */
   private getMostCommonIssues(issues: LintIssue[], limit: number): [string, number][] {
     const ruleCounts: Record<string, number> = {}
-    
+
     for (const issue of issues) {
       if (issue.ruleId) {
         ruleCounts[issue.ruleId] = (ruleCounts[issue.ruleId] || 0) + 1
       }
     }
-    
+
     return Object.entries(ruleCounts)
-      .sort(([,a], [,b]) => b - a)
+      .sort(([, a], [, b]) => b - a)
       .slice(0, limit)
   }
 
@@ -474,30 +481,32 @@ export class LintingCoordinator {
    */
   private getConfigurationSuggestions(linterResults: Record<string, LintIssue[]>): string[] {
     const suggestions: string[] = []
-    
+
     // ESLint suggestions
-    if (linterResults.eslint?.length > 10) {
+    if (linterResults.eslint && linterResults.eslint.length > 10) {
       suggestions.push('Consider tightening ESLint rules to maintain code quality')
     }
-    
+
     // TypeScript suggestions
     const tsErrors = linterResults.typescript?.filter(i => i.severity === 'error').length || 0
     if (tsErrors > 5) {
-      suggestions.push('Multiple TypeScript errors detected - consider enabling strict mode gradually')
+      suggestions.push(
+        'Multiple TypeScript errors detected - consider enabling strict mode gradually'
+      )
     }
-    
+
     // Prettier suggestions
-    if (linterResults.prettier?.length > 0) {
+    if (linterResults.prettier && linterResults.prettier.length > 0) {
       suggestions.push('Set up Prettier pre-commit hooks to maintain consistent formatting')
     }
-    
+
     return suggestions
   }
 
   /**
    * Get linting statistics for metrics
    */
-  getLintingStatistics(result: LintResult): Record<string, any> {
+  getLintingStatistics(result: LintResult): Record<string, unknown> {
     return {
       totalIssues: result.totalIssues,
       autoFixableIssues: result.autoFixable,
@@ -505,7 +514,7 @@ export class LintingCoordinator {
       linterBreakdown: Object.fromEntries(
         Object.entries(result.byLinter).map(([linter, issues]) => [linter, issues.length])
       ),
-      fixabilityRatio: result.totalIssues > 0 ? result.autoFixable / result.totalIssues : 0
+      fixabilityRatio: result.totalIssues > 0 ? result.autoFixable / result.totalIssues : 0,
     }
   }
 }

@@ -1,0 +1,201 @@
+# 🔍 Argus Configuration
+# Configure the Eyes of Argus to watch over your code with the perfect balance
+# of vigilance and wisdom for your project's specific needs
+
+# Review strictness level: coaching, standard, strict, blocking
+strictnessLevel: standard
+
+# The Eyes of Argus to activate (choose your specialized watchers)
+focusAreas:
+  - security # 👁️ Security Eye - Vulnerability detection
+  - architecture # 👁️ Architecture Eye - Design pattern and structure review
+  - logic # 👁️ Logic Eye - Code logic analysis (uses Claude Code)
+  - performance # 👁️ Performance Eye - Optimization suggestions
+  - testing # 👁️ Testing Eye - Test quality and coverage analysis
+
+# Eye vigilance levels (0.0 to 2.0)
+# Higher weights make certain eyes more vigilant
+agentWeights:
+  security: 1.2 # Security Eye is highly vigilant
+  architecture: 0.8 # Architecture Eye watches moderately
+  logic: 1.0 # Logic Eye maintains standard vigilance
+  performance: 0.6 # Performance Eye watches lightly
+  testing: 0.4 # Testing Eye provides minimal oversight
+
+# Linting integration
+linting:
+  enabled:
+    - eslint
+    - typescript
+    - prettier
+  configs:
+    eslint:
+      # Custom ESLint configuration overrides
+      rules:
+        complexity: [error, 10]
+        max-depth: [error, 4]
+    typescript:
+      strict: true
+      noImplicitAny: true
+
+# Learning and adaptation settings
+learningMode: true
+enableCoaching: true
+
+# File processing limits
+maxFiles: 30
+
+# Path exclusions (in addition to defaults)
+excludePaths:
+  - 'src/generated/**'
+  - '**/*.stories.tsx'
+  - 'docs/**'
+  - 'scripts/**'
+  - '*.config.js'
+
+# AI model preferences
+models:
+  anthropic: claude-3-5-sonnet-20241022
+  openai: gpt-4-turbo-preview
+  parameters:
+    temperature: 0.1
+    maxTokens: 4000
+
+# Project-specific security settings
+security:
+  criticalFiles:
+    - 'src/auth/**'
+    - 'src/api/auth/**'
+    - 'src/middleware/auth.ts'
+    - 'src/utils/crypto.ts'
+
+  authPatterns:
+    - 'JWT'
+    - 'OAuth'
+    - 'session'
+
+  dataHandling:
+    encryption: true
+    sanitization: true
+    validation: true
+
+# Architecture preferences
+architecture:
+  pattern: 'Clean Architecture'
+  sourceDirectories:
+    - 'src/'
+  testDirectories:
+    - 'src/__tests__/'
+    - 'tests/'
+  configDirectories:
+    - 'config/'
+    - '.github/'
+
+# Testing strategy
+testStrategy:
+  framework: 'Jest'
+  patterns:
+    - '**/*.test.ts'
+    - '**/*.spec.ts'
+  coverage:
+    minimum: 70
+    target: 85
+  types:
+    - unit
+    - integration
+
+# Performance criteria
+performance:
+  criticalAreas:
+    - 'src/api/**'
+    - 'src/data/**'
+    - 'src/utils/**'
+  budgets:
+    bundleSize: 500000 # 500KB
+    loadTime: 3000 # 3 seconds
+    memoryUsage: 100 # 100MB
+
+# Coding conventions (auto-detected but can be overridden)
+conventions:
+  indentation: spaces
+  indentSize: 2
+  naming:
+    variables: camelCase
+    functions: camelCase
+    classes: PascalCase
+    constants: UPPER_CASE
+  imports:
+    style: es6
+    organization: grouped
+
+# Custom vigilance rules for this project
+customRules:
+  # API endpoint security patterns
+  - name: 'API Security Vigilance'
+    pattern: 'src/api/**/*.ts'
+    rules:
+      - 'Must include input validation'
+      - 'Must include error handling'
+      - 'Must include rate limiting considerations'
+
+  # Database security patterns
+  - name: 'Data Layer Security'
+    pattern: 'src/data/**/*.ts'
+    rules:
+      - 'Use parameterized queries only'
+      - 'Include proper indexing comments'
+      - 'Validate all inputs'
+
+# Team-specific coaching preferences
+coaching:
+  focusAreas:
+    - 'TypeScript best practices'
+    - 'React performance patterns'
+    - 'Security-first development'
+    - 'Test-driven development'
+
+  experienceLevel: 'mixed' # junior, mid, senior, mixed
+
+  learningGoals:
+    - 'Improve security awareness'
+    - 'Better error handling patterns'
+    - 'Performance optimization techniques'
+
+# Integration settings
+integrations:
+  sonarQube:
+    enabled: false
+    projectKey: ''
+
+  snyk:
+    enabled: true
+    severity: 'medium'
+
+  dependabot:
+    autoMerge: false
+    schedule: 'weekly'
+
+# Review comment preferences
+commentStyle:
+  tone: 'constructive' # constructive, direct, friendly
+  includeExamples: true
+  includeLearningLinks: true
+  maxCommentsPerFile: 5
+  groupSimilarIssues: true
+
+# Notification settings
+notifications:
+  slack:
+    webhook: ''
+    channel: '#code-review'
+    onlyForBlocking: true
+
+  email:
+    enabled: false
+    recipients: []
+
+# Analytics and metrics
+analytics:
+  trackMetrics: true
+  retentionDays: 90
+  anonymize: true

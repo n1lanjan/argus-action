@@ -1,6 +1,6 @@
 /**
  * Main entry point for Argus - The All-Seeing Code Guardian GitHub Action
- * 
+ *
  * This file orchestrates the entire review process:
  * 1. Initializes configuration and context
  * 2. Detects and prioritizes changed files
@@ -27,17 +27,17 @@ import { ReviewContext, ReviewConfiguration } from './types'
 async function run(): Promise<void> {
   try {
     core.info('👁️ Argus awakens... The All-Seeing Code Guardian is watching...')
-    
+
     // Initialize configuration
     const config = await initializeConfiguration()
     core.info(`📋 Configuration loaded: ${config.strictnessLevel} mode`)
-    
+
     // Check if this is a supported event
     if (!isSupportedEvent()) {
       core.info('⏭️  Skipping: unsupported event type')
       return
     }
-    
+
     // Initialize services
     const githubService = new GitHubService(config)
     const contextBuilder = new ProjectContextBuilder(config)
@@ -45,7 +45,7 @@ async function run(): Promise<void> {
     const lintingCoordinator = new LintingCoordinator(config)
     const orchestrator = new ReviewOrchestrator(config)
     const synthesizer = new ReviewSynthesizer(config)
-    
+
     // Build review context
     core.info('🔍 Building review context...')
     const reviewContext = await buildReviewContext(
@@ -54,50 +54,45 @@ async function run(): Promise<void> {
       contextBuilder,
       filePrioritizer
     )
-    
+
     if (reviewContext.changedFiles.length === 0) {
       core.info('⏭️  No files to review')
       return
     }
-    
+
     core.info(`📁 Found ${reviewContext.changedFiles.length} files to review`)
-    
+
     // Run linting and static analysis
     core.info('🔧 Running linting and static analysis...')
     const lintResults = await lintingCoordinator.runAllLinters(
       reviewContext.changedFiles.map(f => f.filename)
     )
-    
+
     // Execute multi-agent review
     core.info('👁️ Deploying the Eyes of Argus...')
     const agentResults = await orchestrator.executeReview(reviewContext)
-    
+
     // Synthesize results
     core.info('⚡ Synthesizing review results...')
-    const finalReview = await synthesizer.synthesize(
-      agentResults,
-      lintResults,
-      reviewContext
-    )
-    
+    const finalReview = await synthesizer.synthesize(agentResults, lintResults, reviewContext)
+
     // Post results to GitHub
     core.info('📝 Argus speaks his wisdom to GitHub...')
     await githubService.postReview(finalReview, reviewContext)
-    
+
     // Log metrics
     logMetrics(finalReview.metrics)
-    
+
     core.info('✅ Argus has completed his vigil. All eyes have spoken.')
-    
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     const errorStack = error instanceof Error ? error.stack : undefined
-    
+
     core.error(`❌ Review failed: ${errorMessage}`)
     if (errorStack) {
       core.debug(`Stack trace: ${errorStack}`)
     }
-    
+
     core.setFailed(errorMessage)
   }
 }
@@ -116,12 +111,12 @@ async function initializeConfiguration(): Promise<ReviewConfiguration> {
 function isSupportedEvent(): boolean {
   const eventName = github.context.eventName
   const supportedEvents = ['pull_request', 'pull_request_target', 'pull_request_review_comment']
-  
+
   if (!supportedEvents.includes(eventName)) {
     core.warning(`Unsupported event: ${eventName}`)
     return false
   }
-  
+
   // Skip draft PRs unless explicitly configured
   if (eventName.startsWith('pull_request')) {
     const isDraft = github.context.payload.pull_request?.draft
@@ -130,7 +125,7 @@ function isSupportedEvent(): boolean {
       return false
     }
   }
-  
+
   return true
 }
 
@@ -145,61 +140,61 @@ async function buildReviewContext(
 ): Promise<ReviewContext> {
   // Get pull request information
   const pullRequest = await githubService.getPullRequestInfo()
-  
+
   // Get changed files
   const changedFiles = await githubService.getChangedFiles()
-  
+
   // Filter files based on configuration
-  const filteredFiles = changedFiles.filter(file => 
-    !isFileExcluded(file.filename, config.excludePaths)
-  )
-  
+  const filteredFiles = []
+  for (const file of changedFiles) {
+    if (!(await isFileExcluded(file.filename, config.excludePaths))) {
+      filteredFiles.push(file)
+    }
+  }
+
   // Build project context
   const projectContext = await contextBuilder.buildContext()
-  
+
   // Prioritize files based on risk and importance
-  const prioritizedFiles = await filePrioritizer.prioritizeFiles(
-    filteredFiles,
-    projectContext
-  )
-  
+  const prioritizedFiles = await filePrioritizer.prioritizeFiles(filteredFiles, projectContext)
+
   // Limit files if necessary
-  const finalFiles = config.maxFiles > 0 
-    ? prioritizedFiles.slice(0, config.maxFiles)
-    : prioritizedFiles
-  
+  const finalFiles =
+    config.maxFiles > 0 ? prioritizedFiles.slice(0, config.maxFiles) : prioritizedFiles
+
   return {
     pullRequest,
     changedFiles: finalFiles,
     projectContext,
     config,
-    github: githubService.octokit
+    github: githubService.octokit,
   }
 }
 
 /**
  * Check if a file should be excluded from review
  */
-function isFileExcluded(filename: string, excludePatterns: string[]): boolean {
-  const minimatch = require('minimatch')
-  
-  return excludePatterns.some(pattern => 
-    minimatch(filename, pattern, { dot: true })
-  )
+async function isFileExcluded(filename: string, excludePatterns: string[]): Promise<boolean> {
+  const { minimatch } = await import('minimatch')
+
+  return excludePatterns.some(pattern => minimatch(filename, pattern, { dot: true }))
 }
 
 /**
  * Log review metrics for monitoring and improvement
  */
-function logMetrics(metrics: any): void {
+function logMetrics(metrics: Record<string, unknown>): void {
   core.info('📊 Review Metrics:')
   core.info(`  • Files reviewed: ${metrics.filesReviewed}`)
   core.info(`  • Issues found: ${metrics.issuesFound}`)
   core.info(`  • Execution time: ${metrics.executionTime}ms`)
-  
+
   // Log agent performance
-  for (const [agent, performance] of Object.entries(metrics.agentPerformance as any)) {
-    core.info(`  • ${agent}: ${performance.issuesFound} issues, ${performance.executionTime}ms`)
+  if (metrics.agentPerformance) {
+    for (const [agent, performance] of Object.entries(metrics.agentPerformance)) {
+      const agentPerf = performance as { issuesFound: number; executionTime: number }
+      core.info(`  • ${agent}: ${agentPerf.issuesFound} issues, ${agentPerf.executionTime}ms`)
+    }
   }
 }
 
@@ -214,7 +209,7 @@ process.on('unhandledRejection', (reason, promise) => {
 /**
  * Handle uncaught exceptions
  */
-process.on('uncaughtException', (error) => {
+process.on('uncaughtException', error => {
   core.error(`Uncaught Exception: ${error.message}`)
   core.debug(`Stack: ${error.stack}`)
   process.exit(1)

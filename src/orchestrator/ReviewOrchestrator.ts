@@ -1,6 +1,6 @@
 /**
  * Review Orchestrator
- * 
+ *
  * The central coordinator for all review agents. This class:
  * - Manages the lifecycle of specialized AI agents
  * - Coordinates parallel execution of reviews
@@ -21,11 +21,11 @@ import { TestingAgent } from '../agents/TestingAgent'
 export class ReviewOrchestrator {
   private agents: Map<AgentType, ReviewAgent> = new Map()
   private concurrencyLimit: ReturnType<typeof pLimit>
-  
+
   constructor(private config: ReviewConfiguration) {
     // Set up concurrency control - limit parallel agent execution
     this.concurrencyLimit = pLimit(3)
-    
+
     // Initialize all available agents
     this.initializeAgents()
   }
@@ -35,23 +35,24 @@ export class ReviewOrchestrator {
    */
   private initializeAgents(): void {
     core.info('🤖 Initializing review agents...')
-    
+
     // Create agents based on focus areas and weights
     const agentFactories = {
       security: () => new SecurityAgent(this.config),
       architecture: () => new ArchitectureAgent(this.config),
       logic: () => new LogicAgent(this.config),
       performance: () => new PerformanceAgent(this.config),
-      testing: () => new TestingAgent(this.config)
+      testing: () => new TestingAgent(this.config),
     }
-    
+
     for (const [agentType, factory] of Object.entries(agentFactories)) {
       const typedAgentType = agentType as AgentType
-      
+
       // Only initialize agents that are in focus areas and have positive weight
-      if (this.config.focusAreas.includes(typedAgentType) && 
-          this.config.agentWeights[typedAgentType] > 0) {
-        
+      if (
+        this.config.focusAreas.includes(typedAgentType) &&
+        this.config.agentWeights[typedAgentType] > 0
+      ) {
         try {
           const agent = factory()
           this.agents.set(typedAgentType, agent)
@@ -63,7 +64,7 @@ export class ReviewOrchestrator {
         core.info(`⏭️ Skipping ${agentType} agent (not in focus or zero weight)`)
       }
     }
-    
+
     core.info(`🎯 Initialized ${this.agents.size} agents`)
   }
 
@@ -73,42 +74,43 @@ export class ReviewOrchestrator {
   async executeReview(context: ReviewContext): Promise<AgentResult[]> {
     const startTime = Date.now()
     core.info(`🚀 Starting multi-agent review with ${this.agents.size} agents`)
-    
+
     // Prepare agent execution promises with concurrency control
     const agentPromises = Array.from(this.agents.entries()).map(([agentType, agent]) =>
       this.concurrencyLimit(async () => {
         return await this.executeAgentWithRetry(agentType, agent, context)
       })
     )
-    
+
     // Execute all agents in parallel (with concurrency limits)
     const results = await Promise.allSettled(agentPromises)
-    
+
     // Process results and handle failures
     const successfulResults: AgentResult[] = []
     const failedAgents: string[] = []
-    
+
     for (let i = 0; i < results.length; i++) {
       const result = results[i]
-      const agentType = Array.from(this.agents.keys())[i]
-      
-      if (result.status === 'fulfilled') {
+      const agentTypes = Array.from(this.agents.keys())
+      const agentType = agentTypes[i]
+
+      if (result && result.status === 'fulfilled') {
         successfulResults.push(result.value)
         core.info(`✅ ${agentType} agent completed successfully`)
-      } else {
-        failedAgents.push(agentType)
+      } else if (result && result.status === 'rejected') {
+        failedAgents.push(agentType || 'unknown')
         core.error(`❌ ${agentType} agent failed: ${result.reason}`)
       }
     }
-    
+
     const totalTime = Date.now() - startTime
     core.info(`🏁 Multi-agent review completed in ${totalTime}ms`)
     core.info(`📊 Success rate: ${successfulResults.length}/${this.agents.size} agents`)
-    
+
     if (failedAgents.length > 0) {
       core.warning(`⚠️ Failed agents: ${failedAgents.join(', ')}`)
     }
-    
+
     return successfulResults
   }
 
@@ -122,48 +124,51 @@ export class ReviewOrchestrator {
     maxRetries: number = 2
   ): Promise<AgentResult> {
     const startTime = Date.now()
-    
+
     for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
       try {
         core.debug(`🔄 Executing ${agentType} agent (attempt ${attempt})`)
-        
+
         const result = await agent.execute(context)
-        
+
         // Validate result
         this.validateAgentResult(result, agentType)
-        
+
         // Apply agent weight to confidence score
         const weightedResult = {
           ...result,
           confidence: result.confidence * this.config.agentWeights[agentType],
-          executionTime: Date.now() - startTime
+          executionTime: Date.now() - startTime,
         }
-        
+
         core.debug(`✅ ${agentType} agent completed in ${weightedResult.executionTime}ms`)
         return weightedResult
-        
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error)
-        
+
         if (attempt <= maxRetries) {
-          core.warning(`⚠️ ${agentType} agent attempt ${attempt} failed: ${errorMessage}. Retrying...`)
+          core.warning(
+            `⚠️ ${agentType} agent attempt ${attempt} failed: ${errorMessage}. Retrying...`
+          )
           // Wait before retry with exponential backoff
           await this.sleep(1000 * Math.pow(2, attempt - 1))
         } else {
-          core.error(`❌ ${agentType} agent failed after ${maxRetries + 1} attempts: ${errorMessage}`)
-          
+          core.error(
+            `❌ ${agentType} agent failed after ${maxRetries + 1} attempts: ${errorMessage}`
+          )
+
           // Return empty result for failed agent
           return {
             agent: agentType,
             confidence: 0,
             issues: [],
             summary: `Agent failed: ${errorMessage}`,
-            executionTime: Date.now() - startTime
+            executionTime: Date.now() - startTime,
           }
         }
       }
     }
-    
+
     // This should never be reached due to the loop structure
     throw new Error(`Unexpected error in agent execution for ${agentType}`)
   }
@@ -175,23 +180,23 @@ export class ReviewOrchestrator {
     if (!result) {
       throw new Error('Agent returned null or undefined result')
     }
-    
+
     if (result.agent !== agentType) {
       throw new Error(`Agent type mismatch: expected ${agentType}, got ${result.agent}`)
     }
-    
+
     if (typeof result.confidence !== 'number' || result.confidence < 0 || result.confidence > 1) {
       throw new Error(`Invalid confidence score: ${result.confidence}`)
     }
-    
+
     if (!Array.isArray(result.issues)) {
       throw new Error('Issues must be an array')
     }
-    
+
     if (typeof result.summary !== 'string') {
       throw new Error('Summary must be a string')
     }
-    
+
     // Validate each issue
     for (const issue of result.issues) {
       if (!issue.severity || !issue.title || !issue.description || !issue.file) {
@@ -205,15 +210,15 @@ export class ReviewOrchestrator {
    */
   getAgentMetrics(): Record<AgentType, any> {
     const metrics: Record<AgentType, any> = {} as any
-    
+
     for (const agentType of this.agents.keys()) {
       metrics[agentType] = {
         initialized: true,
         weight: this.config.agentWeights[agentType],
-        lastExecution: null // Will be populated during execution
+        lastExecution: null, // Will be populated during execution
       }
     }
-    
+
     return metrics
   }
 
@@ -221,18 +226,16 @@ export class ReviewOrchestrator {
    * Check if all required agents are available
    */
   validateAgentAvailability(): void {
-    const requiredAgents = this.config.focusAreas.filter(area => 
-      this.config.agentWeights[area as AgentType] > 0
+    const requiredAgents = this.config.focusAreas.filter(
+      area => this.config.agentWeights[area as AgentType] > 0
     )
-    
-    const missingAgents = requiredAgents.filter(agent => 
-      !this.agents.has(agent as AgentType)
-    )
-    
+
+    const missingAgents = requiredAgents.filter(agent => !this.agents.has(agent as AgentType))
+
     if (missingAgents.length > 0) {
       throw new Error(`Missing required agents: ${missingAgents.join(', ')}`)
     }
-    
+
     core.info(`✅ All required agents are available: ${requiredAgents.join(', ')}`)
   }
 
@@ -243,12 +246,12 @@ export class ReviewOrchestrator {
     if (!this.config.learningMode) {
       return
     }
-    
+
     core.info('🧠 Adjusting agent weights based on performance...')
-    
+
     for (const [agentType, performance] of Object.entries(performanceData)) {
       const currentWeight = this.config.agentWeights[agentType as AgentType]
-      
+
       // Adjust weight based on performance (simple linear adjustment)
       // High performance (>0.8) increases weight, low performance (<0.4) decreases weight
       let adjustment = 0
@@ -257,10 +260,10 @@ export class ReviewOrchestrator {
       } else if (performance < 0.4) {
         adjustment = -0.1
       }
-      
+
       const newWeight = Math.max(0, Math.min(2, currentWeight + adjustment))
       this.config.agentWeights[agentType as AgentType] = newWeight
-      
+
       if (adjustment !== 0) {
         core.info(`📊 Adjusted ${agentType} weight: ${currentWeight} -> ${newWeight}`)
       }
@@ -272,11 +275,11 @@ export class ReviewOrchestrator {
    */
   getAgentCapabilities(): Record<AgentType, string[]> {
     const capabilities: Record<AgentType, string[]> = {} as any
-    
+
     for (const [agentType, agent] of this.agents.entries()) {
       capabilities[agentType] = agent.capabilities
     }
-    
+
     return capabilities
   }
 

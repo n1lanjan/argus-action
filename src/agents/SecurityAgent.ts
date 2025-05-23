@@ -1,6 +1,6 @@
 /**
  * Security Agent
- * 
+ *
  * Specialized AI agent focused on identifying security vulnerabilities and risks.
  * This agent analyzes code changes for:
  * - Authentication and authorization issues
@@ -13,7 +13,14 @@
 
 import * as core from '@actions/core'
 import Anthropic from '@anthropic-ai/sdk'
-import { ReviewAgent, ReviewContext, AgentResult, AgentType, ReviewIssue, ReviewConfiguration } from '../types'
+import {
+  ReviewAgent,
+  ReviewContext,
+  AgentResult,
+  AgentType,
+  ReviewIssue,
+  ReviewConfiguration,
+} from '../types'
 
 export class SecurityAgent implements ReviewAgent {
   name: AgentType = 'security'
@@ -23,7 +30,7 @@ export class SecurityAgent implements ReviewAgent {
     'Input validation analysis',
     'Data exposure prevention',
     'Cryptographic review',
-    'Configuration security'
+    'Configuration security',
   ]
   priority = 2
 
@@ -49,7 +56,7 @@ export class SecurityAgent implements ReviewAgent {
 
     try {
       const issues: ReviewIssue[] = []
-      
+
       // Analyze each changed file for security issues
       for (const file of context.changedFiles) {
         if (this.shouldAnalyzeFile(file.filename)) {
@@ -64,18 +71,17 @@ export class SecurityAgent implements ReviewAgent {
 
       // Generate overall summary
       const summary = this.generateSecuritySummary(issues, context)
-      
+
       const result: AgentResult = {
         agent: 'security',
         confidence: this.calculateConfidence(issues, context),
         issues,
         summary,
-        executionTime: Date.now() - startTime
+        executionTime: Date.now() - startTime,
       }
 
       core.info(`🔒 Security Agent: Found ${issues.length} security issues`)
       return result
-
     } catch (error) {
       core.error(`Security Agent failed: ${error}`)
       throw error
@@ -91,20 +97,21 @@ export class SecurityAgent implements ReviewAgent {
     }
 
     const prompt = this.buildSecurityAnalysisPrompt(file, context)
-    
+
     try {
       const response = await this.anthropic.messages.create({
         model: this.model,
         max_tokens: this.config.models.parameters.maxTokens,
         temperature: this.config.models.parameters.temperature,
-        messages: [{
-          role: 'user',
-          content: prompt
-        }]
+        messages: [
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
       })
 
       return this.parseSecurityIssues(response.content[0] as any, file.filename)
-
     } catch (error) {
       core.warning(`Failed to analyze ${file.filename} for security: ${error}`)
       return []
@@ -116,7 +123,7 @@ export class SecurityAgent implements ReviewAgent {
    */
   private buildSecurityAnalysisPrompt(file: any, context: ReviewContext): string {
     const { pullRequest, projectContext } = context
-    const isWebApp = projectContext.frameworks.some(f => 
+    const isWebApp = projectContext.frameworks.some(f =>
       ['react', 'vue', 'angular', 'express', 'fastapi', 'django'].includes(f.name.toLowerCase())
     )
 
@@ -217,22 +224,22 @@ Focus on changes that introduce or modify security-relevant code. If no security
    */
   private parseSecurityIssues(response: any, filename: string): ReviewIssue[] {
     const issues: ReviewIssue[] = []
-    
+
     try {
       const text = response.text || ''
       const jsonMatch = text.match(/\[[\s\S]*\]/)
-      
+
       if (!jsonMatch) {
         core.debug(`No security issues found in ${filename}`)
         return issues
       }
 
       const parsedIssues = JSON.parse(jsonMatch[0])
-      
+
       for (const issue of parsedIssues) {
         issues.push({
           severity: issue.severity || 'warning',
-          category: `security-${issue.category}` || 'security-general',
+          category: issue.category ? `security-${issue.category}` : 'security-general',
           title: `🔒 ${issue.title}`,
           description: this.formatSecurityDescription(issue),
           file: filename,
@@ -244,11 +251,10 @@ Focus on changes that introduce or modify security-relevant code. If no security
             rationale: issue.rationale || '',
             resources: this.getSecurityResources(issue.category),
             bestPractice: issue.bestPractice || '',
-            level: this.determineSecurityComplexity(issue.category)
-          }
+            level: this.determineSecurityComplexity(issue.category),
+          },
         })
       }
-
     } catch (error) {
       core.warning(`Failed to parse security analysis for ${filename}: ${error}`)
     }
@@ -260,9 +266,7 @@ Focus on changes that introduce or modify security-relevant code. If no security
    * Analyze configuration files for security issues
    */
   private async analyzeConfigurationSecurity(context: ReviewContext): Promise<ReviewIssue[]> {
-    const configFiles = context.changedFiles.filter(file => 
-      this.isConfigurationFile(file.filename)
-    )
+    const configFiles = context.changedFiles.filter(file => this.isConfigurationFile(file.filename))
 
     const issues: ReviewIssue[] = []
 
@@ -273,16 +277,19 @@ Focus on changes that introduce or modify security-relevant code. If no security
           severity: 'critical',
           category: 'security-configuration',
           title: '🚨 Hardcoded Secrets Detected',
-          description: 'Configuration file contains what appears to be hardcoded credentials or API keys.',
+          description:
+            'Configuration file contains what appears to be hardcoded credentials or API keys.',
           file: file.filename,
           snippet: 'Content hidden for security',
           suggestion: 'Use environment variables or secure secret management systems instead',
           coaching: {
-            rationale: 'Hardcoded secrets can be exposed in version control and compromise security',
+            rationale:
+              'Hardcoded secrets can be exposed in version control and compromise security',
             resources: ['OWASP Secret Management Cheat Sheet'],
-            bestPractice: 'Store secrets in environment variables or dedicated secret management systems',
-            level: 'intermediate'
-          }
+            bestPractice:
+              'Store secrets in environment variables or dedicated secret management systems',
+            level: 'intermediate',
+          },
         })
       }
 
@@ -305,7 +312,7 @@ Focus on changes that introduce or modify security-relevant code. If no security
       /docker-compose\.ya?ml$/,
       /Dockerfile$/,
       /nginx\.conf$/,
-      /apache\.conf$/
+      /apache\.conf$/,
     ]
 
     return configPatterns.some(pattern => pattern.test(filename))
@@ -320,7 +327,7 @@ Focus on changes that introduce or modify security-relevant code. If no security
       /api_?key\s*[=:]\s*["'][^"']{20,}["']/i,
       /secret\s*[=:]\s*["'][^"']{16,}["']/i,
       /token\s*[=:]\s*["'][^"']{20,}["']/i,
-      /private_?key\s*[=:]\s*["']-----BEGIN/i
+      /private_?key\s*[=:]\s*["']-----BEGIN/i,
     ]
 
     return secretPatterns.some(pattern => pattern.test(content))
@@ -331,7 +338,7 @@ Focus on changes that introduce or modify security-relevant code. If no security
    */
   private checkInsecureConfigurations(file: any): ReviewIssue[] {
     const issues: ReviewIssue[] = []
-    
+
     if (!file.content) return issues
 
     // Check for insecure CORS settings
@@ -347,8 +354,8 @@ Focus on changes that introduce or modify security-relevant code. If no security
           rationale: 'Wildcard CORS can enable CSRF attacks and unauthorized data access',
           resources: ['OWASP CORS Guide'],
           bestPractice: 'Use specific origins and validate them server-side',
-          level: 'intermediate'
-        }
+          level: 'intermediate',
+        },
       })
     }
 
@@ -365,8 +372,8 @@ Focus on changes that introduce or modify security-relevant code. If no security
           rationale: 'Debug mode can leak stack traces, internal paths, and sensitive data',
           resources: ['OWASP Configuration Guide'],
           bestPractice: 'Use environment-specific configuration with debug disabled in production',
-          level: 'beginner'
-        }
+          level: 'beginner',
+        },
       })
     }
 
@@ -391,16 +398,25 @@ Focus on changes that introduce or modify security-relevant code. If no security
       /middleware/i,
       /routes?/i,
       /controllers?/i,
-      /handlers?/i
+      /handlers?/i,
     ]
 
     // Check if filename indicates security relevance
-    const isSecurityRelevant = securityCriticalPatterns.some(pattern => 
-      pattern.test(filename)
-    )
+    const isSecurityRelevant = securityCriticalPatterns.some(pattern => pattern.test(filename))
 
     // Standard code files
-    const codeExtensions = ['.js', '.ts', '.jsx', '.tsx', '.py', '.java', '.php', '.rb', '.go', '.cs']
+    const codeExtensions = [
+      '.js',
+      '.ts',
+      '.jsx',
+      '.tsx',
+      '.py',
+      '.java',
+      '.php',
+      '.rb',
+      '.go',
+      '.cs',
+    ]
     const isCodeFile = codeExtensions.some(ext => filename.endsWith(ext))
 
     // Configuration files
@@ -416,10 +432,10 @@ Focus on changes that introduce or modify security-relevant code. If no security
     let baseConfidence = 0.85
 
     // Higher confidence for security-critical files
-    const securityFiles = context.changedFiles.filter(f => 
+    const securityFiles = context.changedFiles.filter(f =>
       /auth|security|crypto|login/.test(f.filename.toLowerCase())
     )
-    
+
     if (securityFiles.length > 0) {
       baseConfidence += 0.1
     }
@@ -436,7 +452,7 @@ Focus on changes that introduce or modify security-relevant code. If no security
   /**
    * Generate security analysis summary
    */
-  private generateSecuritySummary(issues: ReviewIssue[], context: ReviewContext): string {
+  private generateSecuritySummary(issues: ReviewIssue[], _context: ReviewContext): string {
     if (issues.length === 0) {
       return 'No security vulnerabilities detected in the code changes.'
     }
@@ -446,12 +462,12 @@ Focus on changes that introduce or modify security-relevant code. If no security
     const warningCount = issues.filter(i => i.severity === 'warning').length
 
     let summary = `Found ${issues.length} security issue(s): `
-    
+
     const severityParts = []
     if (criticalCount > 0) severityParts.push(`${criticalCount} critical`)
     if (errorCount > 0) severityParts.push(`${errorCount} high`)
     if (warningCount > 0) severityParts.push(`${warningCount} medium`)
-    
+
     summary += severityParts.join(', ')
 
     if (criticalCount > 0) {
@@ -483,12 +499,12 @@ Focus on changes that introduce or modify security-relevant code. If no security
    */
   private getSecurityResources(category: string): string[] {
     const resourceMap: Record<string, string[]> = {
-      'authentication': ['OWASP Authentication Cheat Sheet', 'Auth0 Security Best Practices'],
-      'authorization': ['OWASP Authorization Cheat Sheet', 'NIST Access Control Guidelines'],
+      authentication: ['OWASP Authentication Cheat Sheet', 'Auth0 Security Best Practices'],
+      authorization: ['OWASP Authorization Cheat Sheet', 'NIST Access Control Guidelines'],
       'input-validation': ['OWASP Input Validation Cheat Sheet', 'SANS Input Validation'],
       'data-protection': ['OWASP Data Protection Cheat Sheet', 'GDPR Technical Guidelines'],
-      'configuration': ['OWASP Configuration Review Guide', 'CIS Security Benchmarks'],
-      'cryptography': ['OWASP Cryptographic Storage Cheat Sheet', 'NIST Cryptographic Standards']
+      configuration: ['OWASP Configuration Review Guide', 'CIS Security Benchmarks'],
+      cryptography: ['OWASP Cryptographic Storage Cheat Sheet', 'NIST Cryptographic Standards'],
     }
 
     return resourceMap[category] || ['OWASP Top 10', 'Security Code Review Guide']
@@ -500,7 +516,7 @@ Focus on changes that introduce or modify security-relevant code. If no security
   private determineSecurityComplexity(category: string): 'beginner' | 'intermediate' | 'advanced' {
     const advancedCategories = ['cryptography', 'authorization']
     const intermediateCategories = ['authentication', 'configuration']
-    
+
     if (advancedCategories.includes(category)) {
       return 'advanced'
     } else if (intermediateCategories.includes(category)) {

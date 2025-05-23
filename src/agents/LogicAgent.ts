@@ -1,6 +1,6 @@
 /**
  * Logic Agent
- * 
+ *
  * Specialized AI agent that focuses on code logic analysis using Claude Code.
  * This agent leverages Claude's deep understanding of code to identify:
  * - Logic errors and edge cases
@@ -12,7 +12,14 @@
 
 import * as core from '@actions/core'
 import Anthropic from '@anthropic-ai/sdk'
-import { ReviewAgent, ReviewContext, AgentResult, AgentType, ReviewIssue, ReviewConfiguration } from '../types'
+import {
+  ReviewAgent,
+  ReviewContext,
+  AgentResult,
+  AgentType,
+  ReviewIssue,
+  ReviewConfiguration,
+} from '../types'
 
 export class LogicAgent implements ReviewAgent {
   name: AgentType = 'logic'
@@ -22,7 +29,7 @@ export class LogicAgent implements ReviewAgent {
     'Business rule validation',
     'Algorithm analysis',
     'Code flow verification',
-    'Integration issue detection'
+    'Integration issue detection',
   ]
   priority = 1
 
@@ -48,7 +55,7 @@ export class LogicAgent implements ReviewAgent {
 
     try {
       const issues: ReviewIssue[] = []
-      
+
       // Analyze each changed file for logic issues
       for (const file of context.changedFiles) {
         if (this.shouldAnalyzeFile(file.filename)) {
@@ -59,18 +66,17 @@ export class LogicAgent implements ReviewAgent {
 
       // Generate overall summary
       const summary = this.generateSummary(issues, context)
-      
+
       const result: AgentResult = {
         agent: 'logic',
         confidence: this.calculateConfidence(issues, context),
         issues,
         summary,
-        executionTime: Date.now() - startTime
+        executionTime: Date.now() - startTime,
       }
 
       core.info(`🧠 Logic Agent: Found ${issues.length} logic issues`)
       return result
-
     } catch (error) {
       core.error(`Logic Agent failed: ${error}`)
       throw error
@@ -86,20 +92,21 @@ export class LogicAgent implements ReviewAgent {
     }
 
     const prompt = this.buildAnalysisPrompt(file, context)
-    
+
     try {
       const response = await this.anthropic.messages.create({
         model: this.model,
         max_tokens: this.config.models.parameters.maxTokens,
         temperature: this.config.models.parameters.temperature,
-        messages: [{
-          role: 'user',
-          content: prompt
-        }]
+        messages: [
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
       })
 
       return this.parseLogicIssues(response.content[0] as any, file.filename)
-
     } catch (error) {
       core.warning(`Failed to analyze ${file.filename}: ${error}`)
       return []
@@ -177,19 +184,19 @@ If no significant logic issues are found, respond with an empty array: []`
    */
   private parseLogicIssues(response: any, filename: string): ReviewIssue[] {
     const issues: ReviewIssue[] = []
-    
+
     try {
       // Extract JSON from the response
       const text = response.text || ''
       const jsonMatch = text.match(/\[[\s\S]*\]/)
-      
+
       if (!jsonMatch) {
         core.debug(`No issues found in ${filename}`)
         return issues
       }
 
       const parsedIssues = JSON.parse(jsonMatch[0])
-      
+
       for (const issue of parsedIssues) {
         issues.push({
           severity: issue.severity || 'warning',
@@ -205,11 +212,10 @@ If no significant logic issues are found, respond with an empty array: []`
             rationale: issue.rationale || '',
             resources: [],
             bestPractice: issue.bestPractice || '',
-            level: this.determineComplexityLevel(issue.category)
-          }
+            level: this.determineComplexityLevel(issue.category),
+          },
         })
       }
-
     } catch (error) {
       core.warning(`Failed to parse logic analysis for ${filename}: ${error}`)
     }
@@ -222,15 +228,33 @@ If no significant logic issues are found, respond with an empty array: []`
    */
   private shouldAnalyzeFile(filename: string): boolean {
     // Skip non-code files
-    const codeExtensions = ['.js', '.ts', '.jsx', '.tsx', '.py', '.java', '.c', '.cpp', '.cs', '.rb', '.go', '.php', '.swift', '.kt']
+    const codeExtensions = [
+      '.js',
+      '.ts',
+      '.jsx',
+      '.tsx',
+      '.py',
+      '.java',
+      '.c',
+      '.cpp',
+      '.cs',
+      '.rb',
+      '.go',
+      '.php',
+      '.swift',
+      '.kt',
+    ]
     const hasCodeExtension = codeExtensions.some(ext => filename.endsWith(ext))
-    
+
     // Skip test files for logic analysis (they have different patterns)
     const isTestFile = /\.(test|spec)\.[jt]sx?$/.test(filename) || filename.includes('__tests__')
-    
+
     // Skip generated files
-    const isGenerated = filename.includes('.generated.') || filename.includes('.min.') || filename.includes('.bundle.')
-    
+    const isGenerated =
+      filename.includes('.generated.') ||
+      filename.includes('.min.') ||
+      filename.includes('.bundle.')
+
     return hasCodeExtension && !isTestFile && !isGenerated
   }
 
@@ -252,7 +276,8 @@ If no significant logic issues are found, respond with an empty array: []`
     }
 
     // Reduce confidence if many files were skipped
-    const skippedRatio = (context.changedFiles.length - analyzedFiles.length) / context.changedFiles.length
+    const skippedRatio =
+      (context.changedFiles.length - analyzedFiles.length) / context.changedFiles.length
     if (skippedRatio > 0.5) {
       baseConfidence -= 0.2
     }
@@ -263,34 +288,41 @@ If no significant logic issues are found, respond with an empty array: []`
   /**
    * Generate summary of logic analysis
    */
-  private generateSummary(issues: ReviewIssue[], context: ReviewContext): string {
+  private generateSummary(issues: ReviewIssue[], _context: ReviewContext): string {
     if (issues.length === 0) {
       return 'No significant logic issues detected in the code changes.'
     }
 
-    const severityCounts = issues.reduce((acc, issue) => {
-      acc[issue.severity] = (acc[issue.severity] || 0) + 1
-      return acc
-    }, {} as Record<string, number>)
+    const severityCounts = issues.reduce(
+      (acc, issue) => {
+        acc[issue.severity] = (acc[issue.severity] || 0) + 1
+        return acc
+      },
+      {} as Record<string, number>
+    )
 
-    const categoryCounts = issues.reduce((acc, issue) => {
-      acc[issue.category] = (acc[issue.category] || 0) + 1
-      return acc
-    }, {} as Record<string, number>)
+    const categoryCounts = issues.reduce(
+      (acc, issue) => {
+        acc[issue.category] = (acc[issue.category] || 0) + 1
+        return acc
+      },
+      {} as Record<string, number>
+    )
 
     let summary = `Found ${issues.length} logic issues: `
-    
+
     // Add severity breakdown
-    const severityParts = Object.entries(severityCounts)
-      .map(([severity, count]) => `${count} ${severity}`)
+    const severityParts = Object.entries(severityCounts).map(
+      ([severity, count]) => `${count} ${severity}`
+    )
     summary += severityParts.join(', ')
 
     // Add most common categories
     const topCategories = Object.entries(categoryCounts)
-      .sort(([,a], [,b]) => b - a)
+      .sort(([, a], [, b]) => b - a)
       .slice(0, 3)
       .map(([category, count]) => `${category} (${count})`)
-    
+
     if (topCategories.length > 0) {
       summary += `. Main areas: ${topCategories.join(', ')}`
     }
@@ -310,7 +342,7 @@ If no significant logic issues are found, respond with an empty array: []`
   private determineComplexityLevel(category: string): 'beginner' | 'intermediate' | 'advanced' {
     const complexCategories = ['algorithm', 'state-management', 'integration', 'data-consistency']
     const intermediateCategories = ['business-rule', 'error-handling']
-    
+
     if (complexCategories.includes(category)) {
       return 'advanced'
     } else if (intermediateCategories.includes(category)) {

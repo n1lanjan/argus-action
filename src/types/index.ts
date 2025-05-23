@@ -1,6 +1,6 @@
 /**
- * Core type definitions for the Claude Code Reviewer
- * 
+ * Core type definitions for Argus
+ *
  * This file contains all the essential interfaces and types used throughout
  * the application, providing a centralized type system for better maintainability.
  */
@@ -15,7 +15,7 @@ export interface ReviewContext {
   /** Configuration for this review */
   config: ReviewConfiguration
   /** GitHub API client */
-  github: any // Octokit instance
+  github: unknown // Octokit instance
 }
 
 export interface PullRequestInfo {
@@ -208,7 +208,13 @@ export interface ReviewConfiguration {
   models: ModelConfig
 }
 
-export type ReviewFocus = 'security' | 'architecture' | 'logic' | 'performance' | 'testing' | 'documentation'
+export type ReviewFocus =
+  | 'security'
+  | 'architecture'
+  | 'logic'
+  | 'performance'
+  | 'testing'
+  | 'documentation'
 
 export type AgentType = 'security' | 'architecture' | 'logic' | 'performance' | 'testing'
 
@@ -216,7 +222,7 @@ export interface LinterConfig {
   /** Enabled linters */
   enabled: ('eslint' | 'typescript' | 'prettier' | 'sonar')[]
   /** Linter-specific configurations */
-  configs: Record<string, any>
+  configs: Record<string, unknown>
 }
 
 export interface ModelConfig {
@@ -336,7 +342,7 @@ export interface FinalReview {
   metrics: ReviewMetrics
 }
 
-export interface ReviewMetrics {
+export interface ReviewMetrics extends Record<string, unknown> {
   /** Total files reviewed */
   filesReviewed: number
   /** Total issues found */

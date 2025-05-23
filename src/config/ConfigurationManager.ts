@@ -1,6 +1,6 @@
 /**
  * Configuration Manager
- * 
+ *
  * Handles loading and validation of configuration from multiple sources:
  * - GitHub Action inputs
  * - Repository configuration files
@@ -10,9 +10,8 @@
 
 import * as core from '@actions/core'
 import * as fs from 'fs/promises'
-import * as path from 'path'
 import * as yaml from 'js-yaml'
-import { ReviewConfiguration, ModelConfig, LinterConfig } from '../types'
+import { ReviewConfiguration } from '../types'
 
 export class ConfigurationManager {
   private static readonly DEFAULT_CONFIG: ReviewConfiguration = {
@@ -23,11 +22,11 @@ export class ConfigurationManager {
       architecture: 0.8,
       logic: 1.0,
       performance: 0.6,
-      testing: 0.4
+      testing: 0.4,
     },
     linting: {
       enabled: ['eslint', 'typescript', 'prettier'],
-      configs: {}
+      configs: {},
     },
     learningMode: true,
     enableCoaching: true,
@@ -42,16 +41,16 @@ export class ConfigurationManager {
       '**/*.generated.*',
       '**/*.lock',
       'vendor/**',
-      '.git/**'
+      '.git/**',
     ],
     models: {
       anthropic: 'claude-3-5-sonnet-20241022',
       openai: 'gpt-4-turbo-preview',
       parameters: {
         temperature: 0.1,
-        maxTokens: 4000
-      }
-    }
+        maxTokens: 4000,
+      },
+    },
   }
 
   /**
@@ -59,24 +58,24 @@ export class ConfigurationManager {
    */
   async loadConfiguration(): Promise<ReviewConfiguration> {
     core.info('📋 Loading configuration...')
-    
+
     // Start with default configuration
     let config = { ...ConfigurationManager.DEFAULT_CONFIG }
-    
+
     // Load team-specific configuration if available
     const teamConfig = await this.loadTeamConfiguration()
     if (teamConfig) {
       config = this.mergeConfigurations(config, teamConfig)
       core.info('✅ Team configuration loaded')
     }
-    
+
     // Override with GitHub Action inputs
     const actionConfig = this.loadActionInputs()
     config = this.mergeConfigurations(config, actionConfig)
-    
+
     // Validate configuration
     this.validateConfiguration(config)
-    
+
     core.info(`✅ Configuration loaded: ${config.strictnessLevel} mode`)
     return config
   }
@@ -85,15 +84,15 @@ export class ConfigurationManager {
    * Load team-specific configuration from repository
    */
   private async loadTeamConfiguration(): Promise<Partial<ReviewConfiguration> | null> {
-    const configPath = core.getInput('team-config-path') || '.github/claude-reviewer-config.yml'
-    
+    const configPath = core.getInput('team-config-path') || '.github/argus-config.yml'
+
     try {
       const configContent = await fs.readFile(configPath, 'utf8')
       const teamConfig = yaml.load(configContent) as Partial<ReviewConfiguration>
-      
+
       core.debug(`Team configuration loaded from ${configPath}`)
       return teamConfig
-    } catch (error) {
+    } catch {
       // Config file is optional
       core.debug(`No team configuration found at ${configPath}`)
       return null
@@ -109,13 +108,20 @@ export class ConfigurationManager {
     // Strictness level
     const strictnessLevel = core.getInput('strictness-level')
     if (strictnessLevel) {
-      config.strictnessLevel = strictnessLevel as any
+      config.strictnessLevel = strictnessLevel as 'coaching' | 'standard' | 'strict' | 'blocking'
     }
 
     // Focus areas
     const focusAreas = core.getInput('focus-areas')
     if (focusAreas) {
-      config.focusAreas = focusAreas.split(',').map(area => area.trim()) as any
+      config.focusAreas = focusAreas.split(',').map(area => area.trim()) as (
+        | 'security'
+        | 'architecture'
+        | 'logic'
+        | 'performance'
+        | 'testing'
+        | 'documentation'
+      )[]
     }
 
     // Learning mode
@@ -146,20 +152,25 @@ export class ConfigurationManager {
     const includeLinters = core.getInput('include-linters')
     if (includeLinters) {
       config.linting = {
-        enabled: includeLinters.split(',').map(linter => linter.trim()) as any,
-        configs: {}
+        enabled: includeLinters.split(',').map(linter => linter.trim()) as (
+          | 'eslint'
+          | 'typescript'
+          | 'prettier'
+          | 'sonar'
+        )[],
+        configs: {},
       }
     }
 
     // Model configuration
     const anthropicModel = core.getInput('anthropic-model')
     const openaiModel = core.getInput('openai-model')
-    
+
     if (anthropicModel || openaiModel) {
       config.models = {
         anthropic: anthropicModel || ConfigurationManager.DEFAULT_CONFIG.models.anthropic,
         openai: openaiModel || ConfigurationManager.DEFAULT_CONFIG.models.openai,
-        parameters: ConfigurationManager.DEFAULT_CONFIG.models.parameters
+        parameters: ConfigurationManager.DEFAULT_CONFIG.models.parameters,
       }
     }
 
@@ -177,15 +188,20 @@ export class ConfigurationManager {
 
     for (const [key, value] of Object.entries(override)) {
       if (value !== undefined) {
-        if (typeof value === 'object' && !Array.isArray(value)) {
+        if (typeof value === 'object' && !Array.isArray(value) && value !== null) {
           // Deep merge objects
-          merged[key as keyof ReviewConfiguration] = {
-            ...merged[key as keyof ReviewConfiguration],
-            ...value
-          } as any
+          const baseValue = merged[key as keyof ReviewConfiguration]
+          if (typeof baseValue === 'object' && !Array.isArray(baseValue) && baseValue !== null) {
+            ;(merged as Record<string, unknown>)[key] = {
+              ...baseValue,
+              ...value,
+            }
+          } else {
+            ;(merged as Record<string, unknown>)[key] = value
+          }
         } else {
           // Direct assignment for primitives and arrays
-          merged[key as keyof ReviewConfiguration] = value as any
+          ;(merged as Record<string, unknown>)[key] = value
         }
       }
     }
@@ -204,7 +220,14 @@ export class ConfigurationManager {
     }
 
     // Validate focus areas
-    const validFocusAreas = ['security', 'architecture', 'logic', 'performance', 'testing', 'documentation']
+    const validFocusAreas = [
+      'security',
+      'architecture',
+      'logic',
+      'performance',
+      'testing',
+      'documentation',
+    ]
     for (const area of config.focusAreas) {
       if (!validFocusAreas.includes(area)) {
         throw new Error(`Invalid focus area: ${area}`)
@@ -249,35 +272,35 @@ export class ConfigurationManager {
           blockOnIssues: false,
           includeEducationalContent: true,
           severityThreshold: 'info',
-          maxIssuesPerFile: 10
+          maxIssuesPerFile: 10,
         }
       case 'standard':
         return {
           blockOnIssues: false,
           includeEducationalContent: true,
           severityThreshold: 'warning',
-          maxIssuesPerFile: 5
+          maxIssuesPerFile: 5,
         }
       case 'strict':
         return {
           blockOnIssues: true,
           includeEducationalContent: false,
           severityThreshold: 'warning',
-          maxIssuesPerFile: 3
+          maxIssuesPerFile: 3,
         }
       case 'blocking':
         return {
           blockOnIssues: true,
           includeEducationalContent: false,
           severityThreshold: 'error',
-          maxIssuesPerFile: 1
+          maxIssuesPerFile: 1,
         }
       default:
         return {
           blockOnIssues: false,
           includeEducationalContent: true,
           severityThreshold: 'warning',
-          maxIssuesPerFile: 5
+          maxIssuesPerFile: 5,
         }
     }
   }
@@ -288,7 +311,7 @@ export class ConfigurationManager {
   static getAPIKeys(): { anthropic?: string; openai?: string } {
     return {
       anthropic: process.env.ANTHROPIC_API_KEY,
-      openai: process.env.OPENAI_API_KEY
+      openai: process.env.OPENAI_API_KEY,
     }
   }
 
@@ -296,7 +319,6 @@ export class ConfigurationManager {
    * Check if debug mode is enabled
    */
   static isDebugMode(): boolean {
-    return core.getInput('debug').toLowerCase() === 'true' || 
-           process.env.DEBUG === 'true'
+    return core.getInput('debug').toLowerCase() === 'true' || process.env.DEBUG === 'true'
   }
 }

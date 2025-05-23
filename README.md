@@ -1,19 +1,30 @@
 # 🔍 Argus - The All-Seeing Code Guardian
 
-An advanced AI-powered GitHub Action with multiple specialized agents that watch over your code like the mythical hundred-eyed giant. Argus combines cutting-edge AI models with static analysis to provide comprehensive, educational feedback on pull requests.
+An advanced AI-powered GitHub Action with multiple specialized agents that watch
+over your code like the mythical hundred-eyed giant. Argus combines cutting-edge
+AI models with static analysis to provide comprehensive, educational feedback on
+pull requests.
 
 ## 🎯 Overview
 
-Argus goes beyond traditional code review tools by deploying specialized AI agents - the "Eyes of Argus" - each watching for different aspects of code quality:
+Argus goes beyond traditional code review tools by deploying specialized AI
+agents - the "Eyes of Argus" - each watching for different aspects of code
+quality:
 
-- **👁️ Security Eye**: Watches for vulnerabilities, auth issues, and data exposure risks
-- **👁️ Logic Eye**: Deep analysis using Claude Code for business logic and edge cases  
-- **👁️ Architecture Eye**: Guards design patterns, SOLID principles, and code organization
+- **👁️ Security Eye**: Watches for vulnerabilities, auth issues, and data
+  exposure risks
+- **👁️ Logic Eye**: Deep analysis using Claude Code for business logic and edge
+  cases
+- **👁️ Architecture Eye**: Guards design patterns, SOLID principles, and code
+  organization
 - **👁️ Performance Eye**: Spots bottlenecks and optimization opportunities
 - **🔧 Intelligent Linting**: Summarizes static analysis instead of comment spam
-- **🧠 Context Awareness**: Understands your entire project like a senior developer
-- **🎓 Developer Coaching**: Teaches while reviewing, tailored to experience level
-- **📏 Scales Gracefully**: Handles large PRs with smart prioritization strategies
+- **🧠 Context Awareness**: Understands your entire project like a senior
+  developer
+- **🎓 Developer Coaching**: Teaches while reviewing, tailored to experience
+  level
+- **📏 Scales Gracefully**: Handles large PRs with smart prioritization
+  strategies
 - **🧩 Learns & Adapts**: Evolves with your team's preferences over time
 
 ## 🏗️ Architecture
@@ -25,31 +36,36 @@ graph TB
     C --> D[File Prioritizer]
     D --> E[Linting Coordinator]
     E --> F[Multi-Agent Orchestrator]
-    
+
     F --> G[👁️ Security Eye]
     F --> H[👁️ Architecture Eye]
     F --> I[👁️ Logic Eye]
     F --> J[👁️ Performance Eye]
     F --> K[👁️ Testing Eye]
-    
+
     G --> L[Review Synthesizer]
     H --> L
     I --> L
     J --> L
     K --> L
-    
+
     L --> M[Coaching Engine]
     M --> N[GitHub Comments]
 ```
 
 ### The Eyes of Argus
 
-1. **👁️ Multi-Agent Orchestrator**: The central eye that coordinates all other eyes
-2. **🧠 Context Builder**: Analyzes project DNA - structure, frameworks, and patterns
-3. **🎯 File Prioritizer**: Focuses the most powerful eyes on the highest-risk changes
-4. **🔧 Linting Coordinator**: Integrates multiple static analysis tools intelligently
+1. **👁️ Multi-Agent Orchestrator**: The central eye that coordinates all other
+   eyes
+2. **🧠 Context Builder**: Analyzes project DNA - structure, frameworks, and
+   patterns
+3. **🎯 File Prioritizer**: Focuses the most powerful eyes on the highest-risk
+   changes
+4. **🔧 Linting Coordinator**: Integrates multiple static analysis tools
+   intelligently
 5. **⚡ Review Synthesizer**: Weaves insights from all eyes into coherent wisdom
-6. **🎓 Coaching Engine**: Transforms findings into educational growth opportunities
+6. **🎓 Coaching Engine**: Transforms findings into educational growth
+   opportunities
 
 ## 🚀 Quick Start
 
@@ -82,7 +98,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
+
       - uses: n1lanjan/argus-action@main
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -96,42 +112,52 @@ jobs:
 
 ### Configuration
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `strictness-level` | Review strictness: `coaching`, `standard`, `strict`, `blocking` | `standard` |
-| `focus-areas` | Comma-separated focus areas | `security,architecture,logic` |
-| `learning-mode` | Enable adaptive learning from feedback | `true` |
-| `max-files` | Maximum files to review (0 = no limit) | `50` |
-| `enable-coaching` | Provide educational feedback | `true` |
+| Parameter          | Description                                                     | Default                       |
+| ------------------ | --------------------------------------------------------------- | ----------------------------- |
+| `strictness-level` | Review strictness: `coaching`, `standard`, `strict`, `blocking` | `standard`                    |
+| `focus-areas`      | Comma-separated focus areas                                     | `security,architecture,logic` |
+| `learning-mode`    | Enable adaptive learning from feedback                          | `true`                        |
+| `max-files`        | Maximum files to review (0 = no limit)                          | `50`                          |
+| `enable-coaching`  | Provide educational feedback                                    | `true`                        |
 
 ## 👁️ The Eyes of Argus
 
 ### 🔒 Security Eye
-*"The Vigilant Guardian"*
+
+_"The Vigilant Guardian"_
+
 - Spots vulnerabilities like SQL injection, XSS, and auth bypasses
 - Guards against data exposure and privacy leaks
 - Validates cryptographic implementations and secure configurations
 
-### 🏗️ Architecture Eye  
-*"The Design Sentinel"*
+### 🏗️ Architecture Eye
+
+_"The Design Sentinel"_
+
 - Enforces SOLID principles and clean architecture
 - Detects design pattern violations and coupling issues
 - Guides modular design and dependency management
 
 ### 🧠 Logic Eye
-*"The Reasoning Oracle"* (Powered by Claude Code)
+
+_"The Reasoning Oracle"_ (Powered by Claude Code)
+
 - Deep analysis of business logic and algorithmic correctness
 - Identifies edge cases, race conditions, and logic flaws
 - Provides context-aware insights with full codebase understanding
 
 ### ⚡ Performance Eye
-*"The Speed Demon"*
+
+_"The Speed Demon"_
+
 - Hunts down bottlenecks and inefficient algorithms
 - Spots memory leaks and resource waste
 - Suggests optimizations for speed and scalability
 
 ### 🧪 Testing Eye
-*"The Quality Assurance Master"*
+
+_"The Quality Assurance Master"_
+
 - Evaluates test coverage and quality
 - Identifies missing test scenarios
 - Reviews testing patterns and best practices
@@ -227,7 +253,8 @@ The tool tracks and improves over time:
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md)
+for details.
 
 ### Development Setup
 
@@ -244,7 +271,8 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ## 🆘 Support
 
 - **Issues**: [GitHub Issues](https://github.com/your-org/argus/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-org/argus/discussions)
+- **Discussions**:
+  [GitHub Discussions](https://github.com/your-org/argus/discussions)
 - **Documentation**: [Wiki](https://github.com/your-org/argus/wiki)
 
 ## 🔮 Roadmap
