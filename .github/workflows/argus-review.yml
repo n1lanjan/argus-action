@@ -2,9 +2,13 @@ name: 🔍 Argus Code Review
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
-  pull_request_target:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, ready_for_review]
+  pull_request_review_comment:
+    types: [created]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-argus-review
+  cancel-in-progress: true
 
 jobs:
   argus-review:
