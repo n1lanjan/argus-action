@@ -38104,52 +38104,58 @@ Analyze the code changes for architectural quality including:
 4. **Reusability**: Code that promotes maintainability
 5. **Extensibility**: Future-proof design decisions
 
-## Response Format
-IMPORTANT: Return ONLY a valid JSON object with an "issues" array. Do NOT include markdown code blocks, backticks, or any other formatting.
+## CRITICAL JSON FORMAT REQUIREMENTS
 
-Your response must be a valid JSON object in this exact format:
+You MUST return ONLY valid JSON. Follow these rules strictly:
+
+1. **NO markdown formatting** - no backticks, no code blocks
+2. **ALL property names MUST be quoted** with double quotes
+3. **ALL string values MUST be quoted** with double quotes
+4. **NO trailing commas** anywhere in the JSON
+5. **Escape special characters** in strings: use \\\\ for backslash, \\n for newline, \\" for quotes
+6. **Keep responses concise** to avoid token limits
+
+## Response Format
+
+Return ONLY this JSON structure (no other text):
 
 {
   "issues": [
     {
-      "severity": "error|warning|info",
-      "category": "solid-principles|design-patterns|code-organization|separation-concerns|dependencies|abstraction",
-      "title": "Specific architectural issue",
-      "description": "Detailed explanation of the architectural problem and its impact",
+      "severity": "error",
+      "category": "solid-principles",
+      "title": "Brief issue title",
+      "description": "Clear description without special characters",
       "line": 45,
       "endLine": 60,
-      "snippet": "relevant code snippet",
+      "snippet": "code without backticks or special formatting",
       "suggestion": {
-        "comment": "Explanation of architectural improvement needed",
-        "diff": "Optional: Show refactored code structure"
+        "comment": "Simple explanation of fix needed"
       },
-      "rationale": "Why this violates architectural principles",
+      "rationale": "Why this violates principles",
       "principle": "Single Responsibility Principle",
-      "impact": "maintainability|scalability|testability|readability",
-      "bestPractice": "Recommended architectural approach"
+      "impact": "maintainability",
+      "bestPractice": "Recommended approach"
     }
   ]
 }
 
-### Suggestion Guidelines
-- **Include diff** for concrete refactoring examples
-- **Use comment only** for high-level architectural advice
-- **Show interfaces**: Demonstrate proper abstractions
-- **Provide alternatives**: Multiple valid approaches when applicable
+### Valid Values:
+- **severity**: "error", "warning", "info"
+- **category**: "solid-principles", "design-patterns", "code-organization", "separation-concerns", "dependencies", "abstraction"
+- **impact**: "maintainability", "scalability", "testability", "readability"
 
-### Severity Levels
-- **error**: Serious architectural violations (tight coupling, violation of major principles)
-- **warning**: Design improvements needed (missing abstractions, poor organization)
-- **info**: Best practice suggestions (better naming, structure improvements)
+### Rules for String Content:
+- Replace actual newlines with \\n
+- Replace actual quotes with \\"
+- Replace backslashes with \\\\
+- Do NOT include regex patterns or complex escape sequences
+- Keep code snippets simple and short
+- NO backticks in any string values
 
-### Key Principles to Evaluate
-1. **Single Responsibility**: Does each class/function have one reason to change?
-2. **Open/Closed**: Is code open for extension, closed for modification?
-3. **Liskov Substitution**: Are subtypes properly substitutable?
-4. **Interface Segregation**: Are interfaces focused and cohesive?
-5. **Dependency Inversion**: Does code depend on abstractions, not concretions?
+If no issues found, return: {"issues": []}
 
-Remember: You are the guardian of code structure and design. Help developers build maintainable, scalable, and elegant architectures that stand the test of time.`;
+Remember: Valid JSON formatting is critical. When in doubt, keep it simple.`;
 }
 
 
@@ -38235,61 +38241,64 @@ Perform deep logical analysis of the code changes focusing on:
 4. **Assumptions**: What assumptions might be invalid?
 5. **Race Conditions**: Concurrency and timing issues
 
-## Response Format
-IMPORTANT: Return ONLY a valid JSON object with an "issues" array. Do NOT include markdown code blocks, backticks, or any other formatting.
+## CRITICAL JSON FORMAT REQUIREMENTS
 
-Your response must be a valid JSON object in this exact format:
+You MUST return ONLY valid JSON. Follow these rules strictly:
+
+1. **NO markdown formatting** - no backticks, no code blocks
+2. **ALL property names MUST be quoted** with double quotes
+3. **ALL string values MUST be quoted** with double quotes
+4. **NO trailing commas** anywhere in the JSON
+5. **Escape special characters** in strings: use \\\\ for backslash, \\n for newline, \\" for quotes
+6. **Keep responses concise** to avoid token limits
+
+## Response Format
+
+Return ONLY this JSON structure (no other text):
 
 {
   "issues": [
     {
-      "severity": "critical|error|warning|info",
-      "category": "correctness|edge-cases|error-handling|control-flow|data-flow|algorithm|business-logic|concurrency",
-      "title": "Specific logic issue identified",
-      "description": "Detailed explanation of the logical problem and its consequences",
+      "severity": "critical",
+      "category": "correctness",
+      "title": "Brief logic issue title",
+      "description": "Clear explanation without special characters",
       "line": 67,
       "endLine": 72,
-      "snippet": "problematic code snippet",
+      "snippet": "problematic code without backticks",
       "suggestion": {
-        "comment": "Explanation of how to fix the logical issue",
-        "diff": "Show corrected logic with proper escaping"
+        "comment": "Simple fix explanation"
       },
       "rationale": "Why this is a logic problem",
       "edge_case": "Specific scenario that would fail",
       "test_case": "Input that would expose the bug",
-      "complexity": "O(n) vs O(n²) analysis if relevant"
+      "complexity": "O(n) vs O(n squared) if relevant"
     }
   ]
 }
 
-### Suggestion Guidelines
-- **Include diff** when showing corrected logic or bug fixes
-- **Use comment only** for conceptual explanations
-- **Show examples**: Demonstrate with concrete test cases
-- **Consider performance**: Mention efficiency improvements
+### Valid Values:
+- **severity**: "critical", "error", "warning", "info"
+- **category**: "correctness", "edge-cases", "error-handling", "control-flow", "data-flow", "algorithm", "business-logic", "concurrency"
 
-### Severity Levels
+### Rules for String Content:
+- Replace actual newlines with \\n
+- Replace actual quotes with \\"
+- Replace backslashes with \\\\
+- Do NOT include regex patterns or complex escape sequences
+- Keep code snippets simple and short
+- NO backticks in any string values
+- Use "O(n squared)" instead of "O(n²)" to avoid special characters
+
+### Severity Guidelines:
 - **critical**: Logic errors that cause crashes or data corruption
 - **error**: Bugs that produce incorrect results
 - **warning**: Edge cases not handled, potential issues
 - **info**: Logic improvements, clarity enhancements
 
-### Common Logic Issues to Check
-1. **Null/Undefined**: Missing checks for falsy values
-2. **Array/Object Access**: Bounds checking, property existence
-3. **Type Coercion**: Unexpected type conversions
-4. **Async/Await**: Proper promise handling and error catching
-5. **Loop Logic**: Off-by-one errors, infinite loops
-6. **Conditional Logic**: Missing cases, wrong operators
-7. **State Management**: Unintended mutations, race conditions
+If no issues found, return: {"issues": []}
 
-### Business Logic Validation
-- Does the code correctly implement business requirements?
-- Are domain rules properly enforced?
-- Are calculations accurate?
-- Is data validation comprehensive?
-
-Remember: You are the logical watchdog of code correctness. Think like a debugger, anticipate edge cases, and help developers write robust, reliable logic that handles all scenarios gracefully.`;
+Remember: Valid JSON formatting is critical. When in doubt, keep it simple.`;
 }
 
 
@@ -38348,61 +38357,65 @@ Analyze the code changes for performance impacts including:
 4. **User Experience**: Impact on responsiveness
 5. **Cost Analysis**: Infrastructure/runtime costs
 
-## Response Format
-IMPORTANT: Return ONLY a valid JSON object with an "issues" array. Do NOT include markdown code blocks, backticks, or any other formatting.
+## CRITICAL JSON FORMAT REQUIREMENTS
 
-Your response must be a valid JSON object in this exact format:
+You MUST return ONLY valid JSON. Follow these rules strictly:
+
+1. **NO markdown formatting** - no backticks, no code blocks
+2. **ALL property names MUST be quoted** with double quotes
+3. **ALL string values MUST be quoted** with double quotes
+4. **NO trailing commas** anywhere in the JSON
+5. **Escape special characters** in strings: use \\\\ for backslash, \\n for newline, \\" for quotes
+6. **Keep responses concise** to avoid token limits
+
+## Response Format
+
+Return ONLY this JSON structure (no other text):
 
 {
   "issues": [
     {
-      "severity": "error|warning|info",
-      "category": "algorithm|memory|io|caching|data-structures|rendering|bundle-size|database",
-      "title": "Specific performance issue",
-      "description": "Detailed explanation of the performance problem and its impact",
+      "severity": "error",
+      "category": "algorithm",
+      "title": "Brief performance issue title",
+      "description": "Clear explanation without special characters",
       "line": 23,
       "endLine": 28,
-      "snippet": "inefficient code snippet",
+      "snippet": "inefficient code without backticks",
       "suggestion": {
-        "comment": "Explanation of optimization strategy",
-        "diff": "Optimized version with proper escaping"
+        "comment": "Simple optimization explanation"
       },
       "rationale": "Why this impacts performance",
-      "complexity_current": "O(n²)",
+      "complexity_current": "O(n squared)",
       "complexity_optimized": "O(n)",
-      "impact": "high|medium|low",
+      "impact": "high",
       "measurement": "Specific metrics that would improve"
     }
   ]
 }
 
-### Suggestion Guidelines
-- **Include diff** for concrete optimization code
-- **Use comment only** for architectural performance advice
-- **Show alternatives**: Different optimization approaches
-- **Quantify impact**: Include complexity analysis when relevant
+### Valid Values:
+- **severity**: "error", "warning", "info"
+- **category**: "algorithm", "memory", "io", "caching", "data-structures", "rendering", "bundle-size", "database"
+- **impact**: "high", "medium", "low"
 
-### Severity Levels
-- **error**: Serious performance issues (O(n²) in hot paths, memory leaks)
+### Rules for String Content:
+- Replace actual newlines with \\n
+- Replace actual quotes with \\"
+- Replace backslashes with \\\\
+- Do NOT include regex patterns or complex escape sequences
+- Keep code snippets simple and short
+- NO backticks in any string values
+- Use "O(n squared)" instead of "O(n²)" to avoid special characters
+
+### Severity Guidelines:
+- **error**: Serious performance issues (inefficient algorithms, memory leaks)
 - **warning**: Noticeable inefficiencies (unnecessary loops, redundant operations)
 - **info**: Micro-optimizations and best practices
 
-### Common Performance Issues
-1. **Nested Loops**: Converting O(n²) to O(n) algorithms
-2. **Unnecessary Re-computation**: Caching expensive calculations
-3. **Inefficient Data Access**: Database N+1 queries
-4. **Memory Allocations**: Reducing garbage collection pressure
-5. **Synchronous I/O**: Converting to async operations
-6. **Large Bundle Size**: Optimizing imports and dependencies
-7. **DOM Manipulation**: Minimizing layout thrashing
+If no issues found, return: {"issues": []}
 
-### Framework-Specific Optimizations
-- **React**: useMemo, useCallback, React.memo usage
-- **Vue**: v-memo, computed properties, watchers
-- **Node.js**: Event loop blocking, stream processing
-- **Database**: Query optimization, indexing strategies
-
-Remember: You are the guardian of speed and efficiency. Help developers write performant code that scales gracefully and provides excellent user experience, but balance optimization with code clarity and maintainability.`;
+Remember: Valid JSON formatting is critical. When in doubt, keep it simple.`;
 }
 
 
@@ -38459,46 +38472,64 @@ Analyze the code changes for security vulnerabilities including:
 3. **Think like an attacker**: What could be exploited?
 4. **Be practical**: Avoid false positives, focus on real risks
 
-## Response Format
-IMPORTANT: Return ONLY a valid JSON object with an "issues" array. Do NOT include markdown code blocks, backticks, or any other formatting.
+## CRITICAL JSON FORMAT REQUIREMENTS
 
-Your response must be a valid JSON object in this exact format:
+You MUST return ONLY valid JSON. Follow these rules strictly:
+
+1. **NO markdown formatting** - no backticks, no code blocks
+2. **ALL property names MUST be quoted** with double quotes
+3. **ALL string values MUST be quoted** with double quotes
+4. **NO trailing commas** anywhere in the JSON
+5. **Escape special characters** in strings: use \\\\ for backslash, \\n for newline, \\" for quotes
+6. **Keep responses concise** to avoid token limits
+
+## Response Format
+
+Return ONLY this JSON structure (no other text):
 
 {
   "issues": [
     {
-      "severity": "critical|error|warning|info",
-      "category": "input-validation|authentication|authorization|data-protection|api-security|dependencies|crypto|configuration",
-      "title": "Brief, actionable title",
-      "description": "Detailed explanation of the vulnerability and its impact",
+      "severity": "critical",
+      "category": "input-validation",
+      "title": "Brief vulnerability title",
+      "description": "Clear explanation without special characters",
       "line": 123,
       "endLine": 125,
-      "snippet": "relevant code snippet",
+      "snippet": "vulnerable code without backticks",
       "suggestion": {
-        "comment": "Clear explanation of what needs to be fixed and why",
-        "diff": "Optional: Provide actual code fix if possible"
+        "comment": "Clear fix explanation"
       },
       "rationale": "Why this is a security risk",
       "cwe": "CWE-79",
       "attack_vector": "How this could be exploited",
-      "remediation_priority": "immediate|high|medium|low"
+      "remediation_priority": "immediate"
     }
   ]
 }
 
-### Suggestion Guidelines
-- **Include diff** when you can provide specific code fixes
-- **Use comment only** for architectural/configuration changes
-- **Be specific**: Show exact code replacements when possible
-- **Consider alternatives**: Mention multiple approaches if relevant
+### Valid Values:
+- **severity**: "critical", "error", "warning", "info"
+- **category**: "input-validation", "authentication", "authorization", "data-protection", "api-security", "dependencies", "crypto", "configuration"
+- **remediation_priority**: "immediate", "high", "medium", "low"
 
-### Severity Levels
+### Rules for String Content:
+- Replace actual newlines with \\n
+- Replace actual quotes with \\"
+- Replace backslashes with \\\\
+- Do NOT include regex patterns or complex escape sequences
+- Keep code snippets simple and short
+- NO backticks in any string values
+
+### Severity Guidelines:
 - **critical**: Immediate exploitation possible (injection flaws, auth bypass)
 - **error**: High security risk (sensitive data exposure, weak crypto)
 - **warning**: Medium risk (missing validation, weak configuration)
 - **info**: Best practice improvements (security headers, logging)
 
-Remember: You are the vigilant guardian against digital threats. Be thorough but practical - help developers write secure code without overwhelming them with false alarms.`;
+If no issues found, return: {"issues": []}
+
+Remember: Valid JSON formatting is critical. When in doubt, keep it simple.`;
 }
 
 
@@ -38558,73 +38589,63 @@ Analyze the code changes for testing quality and coverage including:
 4. **Error Handling**: Exception and failure scenarios
 5. **Dependencies**: External service integration testing
 
-## Response Format
-IMPORTANT: Return ONLY a valid JSON object with an "issues" array. Do NOT include markdown code blocks, backticks, or any other formatting.
+## CRITICAL JSON FORMAT REQUIREMENTS
 
-Your response must be a valid JSON object in this exact format:
+You MUST return ONLY valid JSON. Follow these rules strictly:
+
+1. **NO markdown formatting** - no backticks, no code blocks
+2. **ALL property names MUST be quoted** with double quotes
+3. **ALL string values MUST be quoted** with double quotes
+4. **NO trailing commas** anywhere in the JSON
+5. **Escape special characters** in strings: use \\\\ for backslash, \\n for newline, \\" for quotes
+6. **Keep responses concise** to avoid token limits
+
+## Response Format
+
+Return ONLY this JSON structure (no other text):
 
 {
   "issues": [
     {
-      "severity": "warning|info",
-      "category": "coverage|quality|edge-cases|structure|mocking|integration|performance",
-      "title": "Specific testing issue or opportunity",
-      "description": "Detailed explanation of the testing gap or improvement",
+      "severity": "warning",
+      "category": "coverage",
+      "title": "Brief testing issue title",
+      "description": "Clear explanation without special characters",
       "line": 45,
       "endLine": 50,
-      "snippet": "code that needs testing",
+      "snippet": "code that needs testing without backticks",
       "suggestion": {
-        "comment": "Testing strategy and approach explanation",
-        "diff": "Example test implementation with proper escaping"
+        "comment": "Simple testing strategy explanation"
       },
       "rationale": "Why this testing is important",
-      "test_type": "unit|integration|e2e|performance",
-      "priority": "high|medium|low",
+      "test_type": "unit",
+      "priority": "high",
       "coverage_impact": "What this would improve in test coverage"
     }
   ]
 }
 
-### Suggestion Guidelines
-- **Include diff** for specific test implementation examples
-- **Use comment only** for testing strategy advice
-- **Show test cases**: Concrete examples of what to test
-- **Consider test types**: Unit vs integration vs e2e needs
+### Valid Values:
+- **severity**: "warning", "info"
+- **category**: "coverage", "quality", "edge-cases", "structure", "mocking", "integration", "performance"
+- **test_type**: "unit", "integration", "e2e", "performance"
+- **priority**: "high", "medium", "low"
 
-### Severity Levels
+### Rules for String Content:
+- Replace actual newlines with \\n
+- Replace actual quotes with \\"
+- Replace backslashes with \\\\
+- Do NOT include regex patterns or complex escape sequences
+- Keep code snippets simple and short
+- NO backticks in any string values
+
+### Severity Guidelines:
 - **warning**: Missing tests for critical functionality or poor test quality
 - **info**: Test improvements, additional coverage opportunities
 
-### Testing Priorities
-1. **Critical Business Logic**: Core functionality that drives business value
-2. **Error Handling**: How code behaves when things go wrong
-3. **Edge Cases**: Boundary conditions and unusual inputs
-4. **Integration Points**: External dependencies and APIs
-5. **Security-Critical Code**: Authentication, authorization, data handling
-6. **Performance-Critical Code**: High-traffic or resource-intensive operations
+If no issues found, return: {"issues": []}
 
-### Test Quality Assessment
-- **Clarity**: Are tests easy to understand and maintain?
-- **Independence**: Do tests run reliably in isolation?
-- **Coverage**: Do tests cover all important code paths?
-- **Assertions**: Are assertions specific and meaningful?
-- **Setup/Teardown**: Is test environment properly managed?
-
-### Framework-Specific Guidance
-- **Jest/Vitest**: Mock implementation and async testing
-- **React Testing Library**: Component testing best practices
-- **Cypress/Playwright**: E2E testing strategies
-- **Supertest**: API endpoint testing
-
-### Test Types to Consider
-1. **Unit Tests**: Individual function/method testing
-2. **Integration Tests**: Component interaction testing  
-3. **E2E Tests**: Full user workflow testing
-4. **Performance Tests**: Load and stress testing
-5. **Security Tests**: Vulnerability and penetration testing
-6. **Accessibility Tests**: WCAG compliance testing
-
-Remember: You are the guardian of code reliability and quality assurance. Help developers build comprehensive test suites that catch bugs early, document expected behavior, and give confidence in code changes.`;
+Remember: Valid JSON formatting is critical. When in doubt, keep it simple.`;
 }
 
 
@@ -38829,21 +38850,87 @@ class GitHubService {
             if (issue.line === undefined)
                 continue;
             try {
-                await this.octokit.rest.pulls.createReviewComment({
+                // Try to map the full file line number to a diff line position
+                const diffPosition = await this.mapFileLinesWithDiff(issue.file, issue.line, prNumber);
+                if (!diffPosition) {
+                    // Line is not in the diff - skip line-specific comment
+                    core.debug(`Line ${issue.line} in ${issue.file} is not part of the diff - skipping line comment`);
+                    continue;
+                }
+                const commentParams = {
                     owner: this.context.repo.owner,
                     repo: this.context.repo.repo,
                     pull_number: prNumber,
                     body: this.formatIssueComment(issue),
                     commit_id: commitSha,
                     path: issue.file,
-                    line: issue.line,
-                });
+                    side: 'RIGHT', // Default to RIGHT side (new/modified lines)
+                    ...diffPosition, // This will include line and potentially start_line/start_side
+                };
+                await this.octokit.rest.pulls.createReviewComment(commentParams);
+                core.debug(`Posted comment for ${issue.file}:${issue.line}`);
             }
             catch (error) {
                 core.warning(`Could not post comment for ${issue.file}:${issue.line}: ${error}`);
             }
         }
         core.info(`💬 Posted ${issuesWithLines.length} line-specific comments`);
+    }
+    /**
+     * Map file line numbers to diff positions for PR comments
+     * Returns null if the line is not part of the diff
+     */
+    async mapFileLinesWithDiff(filename, lineNumber, prNumber) {
+        try {
+            // Get the PR files to access the patch/diff information
+            const response = await this.octokit.rest.pulls.listFiles({
+                owner: this.context.repo.owner,
+                repo: this.context.repo.repo,
+                pull_number: prNumber,
+            });
+            const file = response.data.find(f => f.filename === filename);
+            if (!file || !file.patch) {
+                return null;
+            }
+            // Parse the diff to find if our line number is in the diff
+            const diffLines = file.patch.split('\n');
+            let currentRightLine = 0;
+            for (const diffLine of diffLines) {
+                // Parse hunk headers like "@@ -1,4 +1,6 @@"
+                const hunkMatch = diffLine.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+                if (hunkMatch) {
+                    currentRightLine = parseInt(hunkMatch[1]) - 1; // -1 because we increment before checking
+                    continue;
+                }
+                // Handle different types of diff lines
+                if (diffLine.startsWith('+')) {
+                    // Addition - this line exists in the new version
+                    currentRightLine++;
+                    if (currentRightLine === lineNumber) {
+                        // Line is in the diff, return the actual line number
+                        return { line: lineNumber };
+                    }
+                }
+                else if (diffLine.startsWith('-')) {
+                    // Deletion - only in old version, skip
+                    continue;
+                }
+                else if (diffLine.startsWith(' ')) {
+                    // Context line - exists in both versions
+                    currentRightLine++;
+                    if (currentRightLine === lineNumber) {
+                        // Line is in the diff, return the actual line number
+                        return { line: lineNumber };
+                    }
+                }
+                // Lines starting with \ (like "\ No newline at end of file") are ignored
+            }
+            return null; // Line not found in diff
+        }
+        catch (error) {
+            core.debug(`Failed to map line ${lineNumber} in ${filename}: ${error}`);
+            return null;
+        }
     }
     /**
      * Submit a blocking review if there are critical issues
@@ -39436,33 +39523,6 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.parseAgentResponse = parseAgentResponse;
 const core = __importStar(__nccwpck_require__(7484));
 /**
- * Clean JSON string to handle common AI response formatting issues
- */
-function cleanJsonString(jsonText) {
-    // Remove any leading/trailing whitespace
-    jsonText = jsonText.trim();
-    // Handle unescaped backticks and newlines in JSON string values
-    // This is a more robust approach that processes JSON structure
-    try {
-        // First, let's try a simple escape approach for common issues
-        let cleaned = jsonText;
-        // Replace unescaped backticks with escaped ones (simple approach)
-        // We'll be conservative and only replace backticks that are clearly within string values
-        cleaned = cleaned.replace(/"([^"]*)`([^"]*)"/g, (match, before, after) => {
-            return `"${before}\\${'`'}${after}"`;
-        });
-        // Handle unescaped newlines within JSON string values
-        cleaned = cleaned.replace(/"([^"]*)\n([^"]*)"/g, (match, before, after) => {
-            return `"${before}\\n${after}"`;
-        });
-        return cleaned;
-    }
-    catch {
-        // If anything goes wrong, return the original text
-        return jsonText;
-    }
-}
-/**
  * Robustly parse JSON from AI agent responses
  * Handles various formats including markdown code blocks and partial JSON
  */
@@ -39482,18 +39542,32 @@ function parseAgentResponse(text, filename, agentType) {
                 core.debug(`No ${agentType} issues found in ${filename} - no valid JSON`);
                 return [];
             }
-            // Clean the JSON string to handle common AI response issues
-            let jsonText = jsonMatch[jsonMatch.length - 1];
-            const originalText = jsonText;
-            jsonText = cleanJsonString(jsonText);
+            let jsonText = jsonMatch[jsonMatch.length - 1].trim();
+            // Handle truncated JSON responses (common with token limits)
+            if (!jsonText.endsWith('}') && !jsonText.endsWith(']')) {
+                core.warning(`${agentType} response appears truncated for ${filename} - attempting recovery`);
+                // Try to close the JSON structure properly
+                const openBraces = (jsonText.match(/\{/g) || []).length;
+                const closeBraces = (jsonText.match(/\}/g) || []).length;
+                const openBrackets = (jsonText.match(/\[/g) || []).length;
+                const closeBrackets = (jsonText.match(/\]/g) || []).length;
+                // Add missing closing braces/brackets
+                for (let i = 0; i < openBraces - closeBraces; i++) {
+                    jsonText += '}';
+                }
+                for (let i = 0; i < openBrackets - closeBrackets; i++) {
+                    jsonText += ']';
+                }
+                // Remove trailing comma if present
+                jsonText = jsonText.replace(/,(\s*[}\]])$/, '$1');
+            }
             try {
                 parsedResponse = JSON.parse(jsonText);
             }
             catch (parseError) {
-                core.debug(`JSON parse failed for ${agentType} agent on ${filename}. Original: ${originalText.substring(0, 100)}...`);
-                core.debug(`Cleaned: ${jsonText.substring(0, 100)}...`);
-                core.debug(`Parse error: ${parseError}`);
-                throw parseError;
+                core.warning(`Failed to parse ${agentType} JSON for ${filename}: ${parseError}`);
+                core.debug(`Problematic JSON: ${jsonText.substring(0, 200)}...`);
+                return [];
             }
         }
         // Handle both old format (array) and new format (object with issues property)

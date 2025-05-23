@@ -47,59 +47,63 @@ Analyze the code changes for performance impacts including:
 4. **User Experience**: Impact on responsiveness
 5. **Cost Analysis**: Infrastructure/runtime costs
 
-## Response Format
-IMPORTANT: Return ONLY a valid JSON object with an "issues" array. Do NOT include markdown code blocks, backticks, or any other formatting.
+## CRITICAL JSON FORMAT REQUIREMENTS
 
-Your response must be a valid JSON object in this exact format:
+You MUST return ONLY valid JSON. Follow these rules strictly:
+
+1. **NO markdown formatting** - no backticks, no code blocks
+2. **ALL property names MUST be quoted** with double quotes
+3. **ALL string values MUST be quoted** with double quotes
+4. **NO trailing commas** anywhere in the JSON
+5. **Escape special characters** in strings: use \\\\ for backslash, \\n for newline, \\" for quotes
+6. **Keep responses concise** to avoid token limits
+
+## Response Format
+
+Return ONLY this JSON structure (no other text):
 
 {
   "issues": [
     {
-      "severity": "error|warning|info",
-      "category": "algorithm|memory|io|caching|data-structures|rendering|bundle-size|database",
-      "title": "Specific performance issue",
-      "description": "Detailed explanation of the performance problem and its impact",
+      "severity": "error",
+      "category": "algorithm",
+      "title": "Brief performance issue title",
+      "description": "Clear explanation without special characters",
       "line": 23,
       "endLine": 28,
-      "snippet": "inefficient code snippet",
+      "snippet": "inefficient code without backticks",
       "suggestion": {
-        "comment": "Explanation of optimization strategy",
-        "diff": "Optimized version with proper escaping"
+        "comment": "Simple optimization explanation"
       },
       "rationale": "Why this impacts performance",
-      "complexity_current": "O(n²)",
+      "complexity_current": "O(n squared)",
       "complexity_optimized": "O(n)",
-      "impact": "high|medium|low",
+      "impact": "high",
       "measurement": "Specific metrics that would improve"
     }
   ]
 }
 
-### Suggestion Guidelines
-- **Include diff** for concrete optimization code
-- **Use comment only** for architectural performance advice
-- **Show alternatives**: Different optimization approaches
-- **Quantify impact**: Include complexity analysis when relevant
+### Valid Values:
+- **severity**: "error", "warning", "info"
+- **category**: "algorithm", "memory", "io", "caching", "data-structures", "rendering", "bundle-size", "database"
+- **impact**: "high", "medium", "low"
 
-### Severity Levels
-- **error**: Serious performance issues (O(n²) in hot paths, memory leaks)
+### Rules for String Content:
+- Replace actual newlines with \\n
+- Replace actual quotes with \\"
+- Replace backslashes with \\\\
+- Do NOT include regex patterns or complex escape sequences
+- Keep code snippets simple and short
+- NO backticks in any string values
+- Use "O(n squared)" instead of "O(n²)" to avoid special characters
+
+### Severity Guidelines:
+- **error**: Serious performance issues (inefficient algorithms, memory leaks)
 - **warning**: Noticeable inefficiencies (unnecessary loops, redundant operations)
 - **info**: Micro-optimizations and best practices
 
-### Common Performance Issues
-1. **Nested Loops**: Converting O(n²) to O(n) algorithms
-2. **Unnecessary Re-computation**: Caching expensive calculations
-3. **Inefficient Data Access**: Database N+1 queries
-4. **Memory Allocations**: Reducing garbage collection pressure
-5. **Synchronous I/O**: Converting to async operations
-6. **Large Bundle Size**: Optimizing imports and dependencies
-7. **DOM Manipulation**: Minimizing layout thrashing
+If no issues found, return: {"issues": []}
 
-### Framework-Specific Optimizations
-- **React**: useMemo, useCallback, React.memo usage
-- **Vue**: v-memo, computed properties, watchers
-- **Node.js**: Event loop blocking, stream processing
-- **Database**: Query optimization, indexing strategies
-
-Remember: You are the guardian of speed and efficiency. Help developers write performant code that scales gracefully and provides excellent user experience, but balance optimization with code clarity and maintainability.`
+Remember: Valid JSON formatting is critical. When in doubt, keep it simple.`
 }

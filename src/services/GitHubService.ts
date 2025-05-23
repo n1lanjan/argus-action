@@ -186,21 +186,99 @@ export class GitHubService {
       if (issue.line === undefined) continue
 
       try {
-        await this.octokit.rest.pulls.createReviewComment({
+        // Try to map the full file line number to a diff line position
+        const diffPosition = await this.mapFileLinesWithDiff(issue.file, issue.line, prNumber)
+
+        if (!diffPosition) {
+          // Line is not in the diff - skip line-specific comment
+          core.debug(
+            `Line ${issue.line} in ${issue.file} is not part of the diff - skipping line comment`
+          )
+          continue
+        }
+
+        const commentParams = {
           owner: this.context.repo.owner,
           repo: this.context.repo.repo,
           pull_number: prNumber,
           body: this.formatIssueComment(issue),
           commit_id: commitSha,
           path: issue.file,
-          line: issue.line,
-        })
+          side: 'RIGHT' as const, // Default to RIGHT side (new/modified lines)
+          ...diffPosition, // This will include line and potentially start_line/start_side
+        }
+
+        await this.octokit.rest.pulls.createReviewComment(commentParams)
+        core.debug(`Posted comment for ${issue.file}:${issue.line}`)
       } catch (error) {
         core.warning(`Could not post comment for ${issue.file}:${issue.line}: ${error}`)
       }
     }
 
     core.info(`💬 Posted ${issuesWithLines.length} line-specific comments`)
+  }
+
+  /**
+   * Map file line numbers to diff positions for PR comments
+   * Returns null if the line is not part of the diff
+   */
+  private async mapFileLinesWithDiff(
+    filename: string,
+    lineNumber: number,
+    prNumber: number
+  ): Promise<{ line: number } | null> {
+    try {
+      // Get the PR files to access the patch/diff information
+      const response = await this.octokit.rest.pulls.listFiles({
+        owner: this.context.repo.owner,
+        repo: this.context.repo.repo,
+        pull_number: prNumber,
+      })
+
+      const file = response.data.find(f => f.filename === filename)
+      if (!file || !file.patch) {
+        return null
+      }
+
+      // Parse the diff to find if our line number is in the diff
+      const diffLines = file.patch.split('\n')
+      let currentRightLine = 0
+
+      for (const diffLine of diffLines) {
+        // Parse hunk headers like "@@ -1,4 +1,6 @@"
+        const hunkMatch = diffLine.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/)
+        if (hunkMatch) {
+          currentRightLine = parseInt(hunkMatch[1]) - 1 // -1 because we increment before checking
+          continue
+        }
+
+        // Handle different types of diff lines
+        if (diffLine.startsWith('+')) {
+          // Addition - this line exists in the new version
+          currentRightLine++
+          if (currentRightLine === lineNumber) {
+            // Line is in the diff, return the actual line number
+            return { line: lineNumber }
+          }
+        } else if (diffLine.startsWith('-')) {
+          // Deletion - only in old version, skip
+          continue
+        } else if (diffLine.startsWith(' ')) {
+          // Context line - exists in both versions
+          currentRightLine++
+          if (currentRightLine === lineNumber) {
+            // Line is in the diff, return the actual line number
+            return { line: lineNumber }
+          }
+        }
+        // Lines starting with \ (like "\ No newline at end of file") are ignored
+      }
+
+      return null // Line not found in diff
+    } catch (error) {
+      core.debug(`Failed to map line ${lineNumber} in ${filename}: ${error}`)
+      return null
+    }
   }
 
   /**
