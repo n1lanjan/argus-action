@@ -1,3 +1,33 @@
-# 
+# Dependencies
 node_modules/
 
+# Build output (excluding dist/ since GitHub Actions need it)
+coverage/
+*.tsbuildinfo
+
+# Source maps (not needed for GitHub Actions)
+*.map
+dist/**/*.map
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Testing
+coverage/
+.nyc_output/
